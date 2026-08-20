@@ -7,7 +7,7 @@
 
 ## Done
 
-- (feature/fix name) — brief note, date
+- v0.1.0 — Project skeleton: Next.js upload portal, FastAPI backend with `/api/submissions` upload endpoint, Supabase Postgres + Storage wiring, SQL migration for `submissions` table, `.env.example` + `docs/setup.md` Supabase guide. Backend tests (8) + frontend tests (3) pass; ruff + eslint + prettier clean. — 2026-08-20
 
 ## In progress
 

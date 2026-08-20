@@ -1,0 +1,4 @@
+[tool.ruff]
+# FastAPI uses File()/Form() in argument defaults, which triggers B008.
+# This is the standard, documented FastAPI pattern, so we ignore it.
+lint.ignore = ["B008"]

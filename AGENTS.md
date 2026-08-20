@@ -21,3 +21,4 @@ Python (FastAPI + agent orchestration) + Next.js (TypeScript) frontend, Supabase
 - Keep the four scoring agents (`agents/scoring/`) as independent, narrowly-scoped modules — don't collapse them back into a single prompt.
 
 See `.clinerules/` for detailed project rules.
+All read `docs/`, `memory-bank/`, `Agents.md`, `CHANGELOG.md`, `ROADMAP.md` to understand the context of the project.
