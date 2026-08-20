@@ -71,9 +71,19 @@ cp frontend/.env.example frontend/.env.local
 ### 4. Run the backend
 
 ```bash
-# From the repo root
+# From the repo root — create and activate a virtual environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+# source venv/bin/activate
+
+# Install dependencies into the venv
 pip install -r backend/requirements.txt
+
+# Start the backend
 uvicorn backend.main:app --reload
+# (Deactivate the venv when done: `deactivate`)
 ```
 
 The API is now at <http://localhost:8000> — interactive docs at <http://localhost:8000/docs>.
@@ -93,8 +103,9 @@ Open <http://localhost:3000> and upload a PDF or PPTX.
 ## Testing
 
 ```bash
-# Backend (from repo root)
-pytest
+# Backend (from repo root) — ensure the venv is active first
+venv\Scripts\pytest     # Windows
+# source venv/bin/activate && pytest   # macOS/Linux
 
 # Frontend (from /frontend)
 npm run test
@@ -103,9 +114,10 @@ npm run test
 ## Lint & Format
 
 ```bash
-# Backend (from repo root)
-ruff check .        # lint
-ruff format .       # format
+# Backend (from repo root) — ensure the venv is active first
+venv\Scripts\ruff check .      # lint   (Windows)
+venv\Scripts\ruff format .     # format (Windows)
+# source venv/bin/activate && ruff check . / ruff format .   # macOS/Linux
 
 # Frontend (from /frontend)
 npm run lint        # lint
