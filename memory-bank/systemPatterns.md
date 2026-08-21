@@ -3,13 +3,39 @@
 <!-- Fill in as patterns emerge, so every session follows the same conventions instead of inventing new ones. -->
 
 ## Naming conventions
-(e.g. camelCase for variables, PascalCase for components/classes)
+
+- **Python (backend + agents):** `snake_case` for variables, functions, and modules; `PascalCase` for classes and dataclasses; `UPPER_SNAKE_CASE` for module-level constants.
+- **TypeScript/React (frontend):** `camelCase` for variables and functions; `PascalCase` for components and types; `UPPER_SNAKE_CASE` for constants.
+- **SQL migrations:** `NNNN_description.sql` — zero-padded sequential numbering (e.g. `0001_create_submissions.sql`).
+- **Git branches:** `feature/v0.x.0-short-name` or `fix/short-name` (per `.clinerules/05-git-workflow.md`).
 
 ## Folder structure logic
-(e.g. "one folder per feature, containing component + test + styles")
+
+- `/backend` — FastAPI application: `main.py` (entry point + middleware), `config.py` (env-based settings), `routes/` (APIRouter modules), `services/` (external-service wrappers), `tests/`.
+- `/agents` — Independent Python LLM/processing modules. Each agent is a narrow, self-contained module (e.g. `agents/parsing/extractor.py`). Tests live in `agents/tests/`.
+- `/frontend` — Next.js (TypeScript) app with `app/` directory structure.
+- `/infra/migrations` — SQL migration files, applied in filename order.
+- `/memory-bank` — Session context: `progress.md`, `activeContext.md`, `systemPatterns.md`, `architecture.md`, `projectBrief.md`, `tech-stack.md`.
+- `/docs` — Long-form docs: roadmap, ADRs, setup guides.
+- `/.clinerules` — Project-wide rules (security, commit style, testing, git workflow, etc.).
 
 ## Common patterns used in this project
-(e.g. "API calls go through a single `apiClient` wrapper, not raw fetch calls scattered around")
+
+- **Supabase access is centralized.** All Supabase interactions go through `backend/services/supabase.py`, which exposes a narrow API (`get_client`, `upload_submission_file`, `insert_submission`, `insert_parsed_submission`). The rest of the backend never imports `supabase` directly.
+- **Configuration via environment variables.** `backend/config.py` loads `.env` from the repo root via `python-dotenv` and exposes a `Settings` singleton. No credentials are ever hardcoded.
+- **Parse-before-persist.** In `POST /api/submissions`, the file is parsed into structured text *before* any Supabase upload/insert. This ensures corrupt or unparseable files are rejected cleanly (HTTP 422) without leaving orphaned storage objects or DB rows.
+- **File validation in the route handler.** File type is validated by extension (never trusting the client's MIME type), file size is checked against `MAX_UPLOAD_BYTES` (50 MB), and team name is validated for non-emptiness — all before reading the full file body where possible.
+- **Agents are independent modules.** The parsing agent (`agents/parsing/extractor.py`) is imported by the backend but is a standalone module with its own tests. Future scoring agents will follow the same pattern: narrow, self-contained, independently testable.
+- **Tests mock external services.** Backend tests use `monkeypatch` to replace the Supabase service layer, so tests never hit the network. Test fixtures build real in-memory PDF/PPTX files using `fitz` (PyMuPDF) and `python-pptx` for integration-style coverage.
+- **CORS is configured in `main.py`.** Allowed origins come from the `FRONTEND_URL` env var (comma-separated, defaults to `http://localhost:3000`).
+- **Dataclasses for structured return types.** The parsing agent returns a `ParsedDocument` dataclass (`source_format`, `raw_text`, `sections`) rather than a raw dict, giving type safety and clear documentation.
+- **Custom exception hierarchy.** `ParsingError` and `UnsupportedFormatError` in the parsing agent; `SupabaseNotConfiguredError` in the service layer — each maps to a specific HTTP status code in the route handler.
 
 ## Things to avoid
-(e.g. "no class components, this project uses functional components only")
+
+- **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.
+- **No paid services.** Only free-tier APIs and open-source libraries (Groq, Supabase free tier, PyMuPDF, python-pptx, etc.).
+- **No GitHub dependency.** PDF/PPTX must always be sufficient. GitHub repo analysis is optional (v2.5.0, stretch).
+- **Don't collapse scoring agents.** Keep the four specialist agents as independent, narrowly-scoped modules — don't merge them into a single prompt.
+- **No `git add .` blindly.** Stage only relevant files per `.clinerules/02-commit-style.md`.
+- **No committing directly to `main`.** Use feature branches per `.clinerules/05-git-workflow.md`.

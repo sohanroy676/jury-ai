@@ -14,3 +14,4 @@ Steps:
 6. Commit. Do not push without explicit approval.
 7. Regenerate CHANGELOG.md from commit history (e.g. via conventional-changelog or git-cliff) —
    do not hand-write changelog entries.
+8. Stage and commit CHANGELOG.md with a `chore: update changelog` commit (do not push without explicit approval).
