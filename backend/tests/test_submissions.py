@@ -127,3 +127,31 @@ def test_health():
     resp = client.get("/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+def test_cors_allows_frontend_origin():
+    """The backend must return CORS headers so the browser lets the
+    frontend read the response (regression test for the
+    'Network error — could not reach the backend' bug)."""
+    resp = client.options(
+        "/api/submissions",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type",
+        },
+    )
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert "POST" in resp.headers.get("access-control-allow-methods", "")
+    assert "content-type" in resp.headers.get(
+        "access-control-allow-headers", ""
+    ).lower()
+
+
+def test_cors_rejects_unlisted_origin():
+    """An origin not in FRONTEND_URL should not get an allow-origin header."""
+    resp = client.options(
+        "/api/submissions",
+        headers={"Origin": "http://evil.example.com"},
+    )
+    assert resp.headers.get("access-control-allow-origin") is None
