@@ -1,7 +1,11 @@
 """Tests for the submission upload endpoint."""
 
+import io
+
+import fitz
 import pytest
 from fastapi.testclient import TestClient
+from pptx import Presentation
 
 from backend.main import app
 from backend.services import supabase
@@ -25,16 +29,39 @@ def _mock_supabase(monkeypatch):
             "status": "submitted",
         }
 
+    def fake_insert_parsed(submission_id, raw_text, sections, source_format):
+        return {
+            "id": "00000000-0000-0000-0000-000000000002",
+            "submission_id": submission_id,
+            "raw_text": raw_text,
+            "sections": sections,
+            "source_format": source_format,
+        }
+
     monkeypatch.setattr(supabase, "upload_submission_file", fake_upload)
     monkeypatch.setattr(supabase, "insert_submission", fake_insert)
+    monkeypatch.setattr(supabase, "insert_parsed_submission", fake_insert_parsed)
 
 
 def _pdf_bytes() -> bytes:
-    return b"%PDF-1.4 fake pdf content"
+    """Build a real in-memory PDF with one page of text."""
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "JuryAI test proposal")
+    data = doc.tobytes()
+    doc.close()
+    return data
 
 
 def _pptx_bytes() -> bytes:
-    return b"PK\x03\x04 fake pptx content"
+    """Build a real in-memory PPTX deck with one slide."""
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "JuryAI Test Deck"
+    slide.placeholders[1].text = "Our solution"
+    buf = io.BytesIO()
+    prs.save(buf)
+    return buf.getvalue()
 
 
 def test_upload_pdf_success():
@@ -120,6 +147,17 @@ def test_upload_rejects_oversized_file(monkeypatch):
     )
     assert resp.status_code == 413
     assert "too large" in resp.json()["detail"].lower()
+
+
+def test_upload_rejects_corrupt_pdf():
+    """A file with a .pdf extension but unparseable content is rejected with 422."""
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Team Corrupt"},
+        files={"file": ("broken.pdf", b"this is not a real pdf", "application/pdf")},
+    )
+    assert resp.status_code == 422
+    assert "Could not parse file" in resp.json()["detail"]
 
 
 def test_health():

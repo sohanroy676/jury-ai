@@ -88,3 +88,36 @@ def insert_submission(team_name: str, file_url: str, file_type: str) -> dict:
     )
 
     return row
+
+
+def insert_parsed_submission(
+    submission_id: str, raw_text: str, sections: list[dict], source_format: str
+) -> dict:
+    """Insert a parsed-submission row into Supabase Postgres.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+        raw_text: The full extracted text.
+        sections: Per-page/slide text chunks (JSON-serializable).
+        source_format: One of ``pdf`` or ``pptx``.
+
+    Returns:
+        The inserted row as a dict.
+    """
+    client = get_client()
+
+    row = (
+        client.table("parsed_submissions")
+        .insert(
+            {
+                "submission_id": submission_id,
+                "raw_text": raw_text,
+                "sections": sections,
+                "source_format": source_format,
+            }
+        )
+        .execute()
+        .data[0]
+    )
+
+    return row

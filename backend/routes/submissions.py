@@ -5,6 +5,7 @@ import uuid
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
+from agents.parsing.extractor import ParsingError, extract_text
 from backend.services import supabase
 
 router = APIRouter(prefix="/api", tags=["submissions"])
@@ -21,10 +22,11 @@ async def create_submission(
     team_name: str = Form(...),
     file: UploadFile = File(...),
 ) -> dict:
-    """Upload a submission file and store its metadata.
+    """Upload a submission file, parse it, and store both.
 
-    Validates the file type and size, uploads to Supabase Storage, then
-    inserts a row into the `submissions` table.
+    Validates the file type and size, parses the file into structured text,
+    uploads to Supabase Storage, then inserts rows into the `submissions`
+    and `parsed_submissions` tables.
     """
     # --- Validate file type by extension (never trust the client).
     file_ext = os.path.splitext(file.filename or "")[1].lower()
@@ -49,6 +51,15 @@ async def create_submission(
     if len(file_bytes) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+    # --- Parse the file into structured text (before persisting anything,
+    #     so a corrupt file that can't be parsed is rejected cleanly).
+    try:
+        parsed = extract_text(file_bytes, file_type)
+    except ParsingError as exc:
+        raise HTTPException(
+            status_code=422, detail=f"Could not parse file: {exc}"
+        ) from exc
+
     # --- Upload to Supabase Storage under a unique path.
     storage_path = f"{uuid.uuid4()}/{file.filename}"
     try:
@@ -59,6 +70,14 @@ async def create_submission(
     # --- Insert a row into the submissions table.
     try:
         row = supabase.insert_submission(team_name, file_url, file_type)
+    except supabase.SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # --- Insert the parsed output, linked to the submission row.
+    try:
+        supabase.insert_parsed_submission(
+            row["id"], parsed.raw_text, parsed.sections, parsed.source_format
+        )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
