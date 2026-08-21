@@ -3,7 +3,7 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-v0.1.0 (project skeleton) is implemented, tested, and verified end-to-end. The CORS fix is merged into `main`. Next up is v0.2.0 (parsing agent).
+v0.1.0 (project skeleton) is implemented, tested, and verified end-to-end. The CORS fix is merged into `main`. v0.2.0 (parsing agent) is implemented and committed on `feature/v0.2.0-parsing` (commit `ea558e7`) — NOT yet merged into `main`. Next up is merging v0.2.0 and starting v0.3.0 (single scoring agent).
 
 ## Recent decisions
 - Chose FastAPI + Supabase (Postgres + Storage) for v0.1.0, matching the established tech-stack. No local SQLite fallback — real Supabase keys will be added.
@@ -19,4 +19,5 @@ v0.1.0 (project skeleton) is implemented, tested, and verified end-to-end. The C
 - Remaining frontend `npm audit` vulnerabilities (postcss, sharp) require a breaking Next 16 upgrade — decide whether to do this later.
 
 ## Next step
-- Start v0.2.0 (parsing agent): extract structured text from PDF (PyMuPDF) and PPTX (python-pptx), chunk into sections, store in a `parsed_submissions` table.
+- Merge `feature/v0.2.0-parsing` into `main` (after the user runs `infra/migrations/0002_create_parsed_submissions.sql` in Supabase).
+- Then start v0.3.0 (single scoring agent): Groq-powered, hardcoded rubric, structured JSON score output.
