@@ -3,7 +3,7 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-v0.1.0 (project skeleton) is implemented and tested. Next up is v0.2.0 (parsing agent).
+v0.1.0 (project skeleton) is implemented, tested, and verified end-to-end. The CORS fix is merged into `main`. Next up is v0.2.0 (parsing agent).
 
 ## Recent decisions
 - Chose FastAPI + Supabase (Postgres + Storage) for v0.1.0, matching the established tech-stack. No local SQLite fallback — real Supabase keys will be added.
@@ -12,12 +12,11 @@ v0.1.0 (project skeleton) is implemented and tested. Next up is v0.2.0 (parsing 
 - Pinned `pydantic==2.12.4` (not 2.10.4) because 2.10.4's `pydantic-core` has no Python 3.14 wheel and fails to build on this machine.
 - Pinned `httpx==0.27.2` (not 0.28.1) to satisfy `supabase==2.9.0`'s `httpx<0.28` constraint.
 - Upgraded `next` to `15.5.23` (patched CVE-2025-66478) and `eslint`/`vitest` to patched versions. Remaining `npm audit` items (postcss/sharp) only resolve via a breaking Next 16 upgrade — deferred.
+- **CORS fix (merged into main):** Added `CORSMiddleware` to the FastAPI app. Allowed origins come from the `FRONTEND_URL` env var (comma-separated, defaults to `http://localhost:3000`). Methods: GET/POST/OPTIONS; headers: Content-Type; credentials allowed. This resolved the "Network error — could not reach the backend" issue in the upload portal.
 
 ## Blockers / open questions
 - Supabase credentials not yet in `.env` — user needs to create a project, run the SQL migration, create the `submissions` storage bucket, and fill in `.env` (see `docs/setup.md`).
 - Remaining frontend `npm audit` vulnerabilities (postcss, sharp) require a breaking Next 16 upgrade — decide whether to do this later.
 
 ## Next step
-- User: set up Supabase per `docs/setup.md` and fill in `.env`.
-- Then: manually verify v0.1.0 end-to-end (upload a PDF and PPTX, confirm storage + DB row, confirm `.exe`/`.docx` rejected).
-- Then: start v0.2.0 (parsing agent).
+- Start v0.2.0 (parsing agent): extract structured text from PDF (PyMuPDF) and PPTX (python-pptx), chunk into sections, store in a `parsed_submissions` table.
