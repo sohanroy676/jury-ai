@@ -143,9 +143,9 @@ def test_cors_allows_frontend_origin():
     )
     assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
     assert "POST" in resp.headers.get("access-control-allow-methods", "")
-    assert "content-type" in resp.headers.get(
-        "access-control-allow-headers", ""
-    ).lower()
+    assert (
+        "content-type" in resp.headers.get("access-control-allow-headers", "").lower()
+    )
 
 
 def test_cors_rejects_unlisted_origin():
