@@ -4,11 +4,11 @@
 
 ## Now
 
-- v0.3.0 — Single scoring agent: prove the core loop using Groq, one hardcoded rubric, structured JSON score output.
 - v0.4.0 — Checkpoint: core loop (upload → parse → score) demoable end to end before adding multi-agent complexity.
 
 ## Done
 
+- v0.3.0 — Single scoring agent: Groq-powered, hardcoded rubric, structured JSON score output. (2026-08-22)
 - v0.2.0 — Parsing agent: extract structured text from both PDF (PyMuPDF) and PPTX (python-pptx). (2026-08-21)
 - v0.1.0 — Project skeleton: upload portal, Supabase DB + storage wired, submissions stored on upload. (2026-08-20)
 
