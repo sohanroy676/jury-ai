@@ -157,6 +157,49 @@ def test_pptx_corrupt_bytes_raises():
         extract_text(b"this is not a pptx at all", "pptx")
 
 
+# --- Unicode dash normalization ---------------------------------------------
+
+
+def test_normalize_unicode_dashes_all_variants():
+    """All six typographic dash variants map to a plain ASCII hyphen."""
+    from agents.parsing.extractor import normalize_unicode_dashes
+
+    text = "a\u2010b\u2011c\u2012d\u2013e\u2014f\u2212g"
+    assert normalize_unicode_dashes(text) == "a-b-c-d-e-f-g"
+    assert normalize_unicode_dashes("no dashes here") == "no dashes here"
+
+
+# NOTE: There is no PDF equivalent of the PPTX normalization test below.
+# PyMuPDF's built-in fonts (helv, china-s) cannot encode typographic dash
+# glyphs at write time — they are substituted with U+FFFD in the fixture,
+# so a round-trip test cannot exercise them. The normalization itself is
+# format-independent: the same shared function is applied to extracted
+# text in both _extract_pdf and _extract_pptx, and is fully covered by
+# test_normalize_unicode_dashes_all_variants plus this end-to-end test.
+
+
+def test_pptx_normalizes_unicode_dashes():
+    """Typographic dashes in a PPTX come out as plain ASCII hyphens."""
+    data = _make_pptx(
+        [
+            {
+                "title": "Cost\u2011per\u2011dollar",
+                "body": [
+                    "end\u2010to\u2010end pipeline",
+                    "range \u2013 wide \u2014 scope",
+                ],
+            }
+        ]
+    )
+    result = extract_text(data, "pptx")
+
+    assert "Cost-per-dollar" in result.raw_text
+    assert "end-to-end pipeline" in result.raw_text
+    assert "range - wide - scope" in result.raw_text
+    for ch in ("\u2010", "\u2011", "\u2012", "\u2013", "\u2014"):
+        assert ch not in result.raw_text
+
+
 # --- Format handling -------------------------------------------------------
 
 

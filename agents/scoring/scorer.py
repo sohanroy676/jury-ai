@@ -18,6 +18,8 @@ from typing import Any
 
 from groq import APIConnectionError, Groq, RateLimitError
 
+from agents.parsing.extractor import normalize_unicode_dashes
+
 AGENT_VERSION = "v0.3.0"
 # llama-3.3-70b-versatile was deprecated/removed from Groq's free tier;
 # openai/gpt-oss-120b is the roadmap's listed alternative and is available.
@@ -189,7 +191,7 @@ def _parse_scores(json_str: str) -> list[CriterionScore]:
         score = int(entry["score"])
         if score < 1 or score > 10:
             raise ValueError(f"Score for '{name}' is {score}, must be 1-10")
-        justification = str(entry["justification"]).strip()
+        justification = normalize_unicode_dashes(str(entry["justification"]).strip())
         if not justification:
             raise ValueError(f"Justification for '{name}' is empty")
         scores.append(

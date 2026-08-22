@@ -15,6 +15,26 @@ from typing import Any
 import fitz  # PyMuPDF
 from pptx import Presentation
 
+# Typographic dash variants commonly emitted by PDF/PPTX generators.
+# Normalized to plain ASCII hyphens so stored text, LLM prompts, and
+# LLM outputs never contain characters that break Windows consoles
+# or downstream consumers.
+_DASH_TRANSLATION = str.maketrans(
+    {
+        "\u2010": "-",  # hyphen
+        "\u2011": "-",  # non-breaking hyphen
+        "\u2012": "-",  # figure dash
+        "\u2013": "-",  # en dash
+        "\u2014": "-",  # em dash
+        "\u2212": "-",  # minus sign
+    }
+)
+
+
+def normalize_unicode_dashes(text: str) -> str:
+    """Convert Unicode dash variants to plain ASCII hyphens."""
+    return text.translate(_DASH_TRANSLATION)
+
 
 class UnsupportedFormatError(ValueError):
     """Raised when the file type is not PDF or PPTX."""
@@ -51,7 +71,7 @@ def _extract_pdf(file_bytes: bytes) -> ParsedDocument:
 
     try:
         for page_num, page in enumerate(doc, start=1):
-            text = page.get_text("text").strip()
+            text = normalize_unicode_dashes(page.get_text("text").strip())
             page_texts.append(text)
             sections.append({"type": "page", "index": page_num, "text": text})
     finally:
@@ -97,7 +117,7 @@ def _extract_pptx(file_bytes: bytes) -> ParsedDocument:
             if notes_text:
                 parts.append(f"[Notes] {notes_text}")
 
-        slide_text = "\n".join(parts).strip()
+        slide_text = normalize_unicode_dashes("\n".join(parts).strip())
         slide_texts.append(slide_text)
         sections.append({"type": "slide", "index": slide_num, "text": slide_text})
 

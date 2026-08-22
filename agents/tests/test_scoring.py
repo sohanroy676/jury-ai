@@ -277,3 +277,39 @@ def test_score_submission_stable_across_10_runs(monkeypatch):
             assert score.justification
 
     assert client.chat.completions.create.call_count == 10
+
+
+# --- Unicode dash normalization ---------------------------------------------
+
+
+def test_score_submission_normalizes_unicode_in_justification(monkeypatch):
+    """Unicode dashes in LLM justifications are converted to ASCII hyphens."""
+    scores = {
+        "problem_fit": {
+            "score": 8,
+            "justification": "cost\u2011per\u2011dollar savings",
+        },
+        "technical_depth": {
+            "score": 7,
+            "justification": "end\u2013to\u2013end pipeline",
+        },
+        "feasibility": {
+            "score": 6,
+            "justification": "realistic \u2014 achievable",
+        },
+        "innovation": {
+            "score": 9,
+            "justification": "novel approach",
+        },
+    }
+    client = _mock_client(json.dumps(scores))
+    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
+
+    result = score_submission("test-id", "Some text", groq_api_key="test-key")
+
+    assert result.scores[0].justification == "cost-per-dollar savings"
+    assert result.scores[1].justification == "end-to-end pipeline"
+    assert result.scores[2].justification == "realistic - achievable"
+    for s in result.scores:
+        for ch in ("\u2010", "\u2011", "\u2012", "\u2013", "\u2014"):
+            assert ch not in s.justification
