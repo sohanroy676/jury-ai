@@ -3,7 +3,7 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-v0.3.0 (single scoring agent) is implemented, tested (41/41 pass), and verified working end-to-end against a real submission (Groq returned valid JSON scores with content-referencing justifications). All work is committed on `feature/v0.3.0-scoring-agent` (5 commits: `51e7fef` feature, `bc8afb6` docs, `869aaf7` model fix, `d5172bf` dash normalization, `62999b3` docs), not yet merged to `main`. v0.1.0 and v0.2.0 are merged into `main` and in sync with `origin/main`. Next up: merge the branch, then v0.4.0 (core loop checkpoint).
+v0.3.0 (single scoring agent) is **released**: implemented, tested (41/41 pass), verified end-to-end against a real submission, merged into `main` (fast-forward to `02ba841`), tagged `v0.3.0`, and pushed to GitHub (`origin/main` + tag in sync). Next up is v0.4.0 (core loop checkpoint).
 
 ## Recent decisions
 - Chose FastAPI + Supabase (Postgres + Storage) for v0.1.0, matching the established tech-stack. No local SQLite fallback — real Supabase keys will be added.
@@ -18,9 +18,8 @@ v0.3.0 (single scoring agent) is implemented, tested (41/41 pass), and verified 
 - **Unicode dash normalization:** PDF/PPTX generators emit typographic dash variants (U+2010-U+2014, U+2212) that extractors pass through verbatim and the LLM echoes into justifications. Added `normalize_unicode_dashes()` in the parsing agent (applied to all extracted text) and to LLM justifications in the scoring agent (commit `d5172bf`).
 
 ## Blockers / open questions
-- `feature/v0.3.0-scoring-agent` (5 commits) is not yet merged to `main` — needs review/merge, then tag `v0.3.0`.
 - Submissions parsed before the dash-normalization fix keep their Unicode dashes in `parsed_submissions` — acceptable; new uploads are clean. Re-parsing old rows is not planned.
 - Remaining frontend `npm audit` vulnerabilities (postcss, sharp) require a breaking Next 16 upgrade — decide whether to do this later.
 
 ## Next step
-- Merge `feature/v0.3.0-scoring-agent` into `main` (with user approval) and tag `v0.3.0`. Then start v0.4.0 checkpoint: confirm the full core loop (upload → parse → score) is demoable end to end — all migrations are run, `GROQ_API_KEY` is in `.env`, and the scoring path is already verified against a real submission.
+- Start v0.4.0 checkpoint: confirm the full core loop (upload → parse → score) is demoable end to end — all migrations are run, `GROQ_API_KEY` is in `.env`, and the scoring path is already verified against a real submission. Recommend a fresh session for v0.4.0 per session-efficiency rules.
