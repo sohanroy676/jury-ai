@@ -1,6 +1,6 @@
 """Scoring agent — evaluates parsed submission text against a rubric.
 
-Uses Groq's API (llama-3.3-70b-versatile) to score a submission across
+Uses Groq's API (openai/gpt-oss-120b) to score a submission across
 four criteria: problem_fit, technical_depth, feasibility, innovation.
 Each criterion is scored 1-10 with a justification string.
 
@@ -19,7 +19,9 @@ from typing import Any
 from groq import APIConnectionError, Groq, RateLimitError
 
 AGENT_VERSION = "v0.3.0"
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+# llama-3.3-70b-versatile was deprecated/removed from Groq's free tier;
+# openai/gpt-oss-120b is the roadmap's listed alternative and is available.
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0
 
