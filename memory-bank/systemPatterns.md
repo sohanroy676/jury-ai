@@ -30,6 +30,9 @@
 - **CORS is configured in `main.py`.** Allowed origins come from the `FRONTEND_URL` env var (comma-separated, defaults to `http://localhost:3000`).
 - **Dataclasses for structured return types.** The parsing agent returns a `ParsedDocument` dataclass (`source_format`, `raw_text`, `sections`) rather than a raw dict, giving type safety and clear documentation.
 - **Custom exception hierarchy.** `ParsingError` and `UnsupportedFormatError` in the parsing agent; `SupabaseNotConfiguredError` in the service layer — each maps to a specific HTTP status code in the route handler.
+- **Extracted text is normalized to ASCII-safe characters.** `normalize_unicode_dashes()` in the parsing agent converts typographic dash variants (U+2010–U+2014, U+2212) to plain hyphens at extraction time; the scoring agent applies the same function to LLM justifications. Never store or prompt with raw typographic dashes — they break Windows consoles and downstream consumers.
+- **Groq retry policy.** Only `RateLimitError` (429) and `APIConnectionError` are retried, with exponential backoff (1s doubling, max 3 retries). Malformed/invalid JSON responses get a corrective re-prompt retry loop in `score_submission`. All other Groq errors propagate immediately.
+- **Default Groq model is `openai/gpt-oss-120b`.** `llama-3.3-70b-versatile` was removed from Groq's free tier (404 model_not_found) — do not reference it in new code.
 
 ## Things to avoid
 
