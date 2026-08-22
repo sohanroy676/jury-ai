@@ -121,3 +121,62 @@ def insert_parsed_submission(
     )
 
     return row
+
+
+def get_parsed_submission(submission_id: str) -> dict | None:
+    """Fetch a parsed submission row from Supabase Postgres.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+
+    Returns:
+        The parsed submission row as a dict, or ``None`` if not found.
+    """
+    client = get_client()
+
+    result = (
+        client.table("parsed_submissions")
+        .select("*")
+        .eq("submission_id", submission_id)
+        .single()
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data
+
+
+def insert_scores(
+    submission_id: str,
+    scores: list,
+    agent_version: str,
+) -> list[dict]:
+    """Insert score rows into Supabase Postgres.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+        scores: A list of objects with ``criterion``, ``score``, and
+            ``justification`` attributes (e.g. ``CriterionScore`` dataclasses).
+        agent_version: The version string of the scoring agent.
+
+    Returns:
+        The inserted rows as a list of dicts.
+    """
+    client = get_client()
+
+    rows = [
+        {
+            "submission_id": submission_id,
+            "criterion": s.criterion,
+            "score": s.score,
+            "justification": s.justification,
+            "agent_version": agent_version,
+        }
+        for s in scores
+    ]
+
+    result = client.table("scores").insert(rows).execute()
+
+    return result.data

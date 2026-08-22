@@ -21,6 +21,7 @@ class Settings:
         self.supabase_storage_bucket: str = os.getenv(
             "SUPABASE_STORAGE_BUCKET", "submissions"
         )
+        self.groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
     @property
     def is_configured(self) -> bool:
@@ -30,6 +31,11 @@ class Settings:
             and self.supabase_anon_key
             and self.supabase_service_role_key
         )
+
+    @property
+    def is_groq_configured(self) -> bool:
+        """True when the Groq API key is present."""
+        return bool(self.groq_api_key)
 
 
 settings = Settings()
