@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from groq import GroqError
 
-from agents.scoring.scorer import ScoringResult, score_submission
+from agents.scoring.scorer import ScoringResult, build_scoring_text, score_submission
 from backend.services import supabase
 
 router = APIRouter(prefix="/api", tags=["scoring"])
@@ -28,9 +28,13 @@ async def score_submission_endpoint(submission_id: str) -> dict:
             detail=f"Submission {submission_id} not found or not yet parsed.",
         )
 
-    # --- Score the submission.
+    # --- Score the submission. Image descriptions (v0.3.5), when
+    #     present, are merged into the text the agent sees.
+    scoring_text = build_scoring_text(
+        parsed["raw_text"], parsed.get("image_descriptions")
+    )
     try:
-        result: ScoringResult = score_submission(submission_id, parsed["raw_text"])
+        result: ScoringResult = score_submission(submission_id, scoring_text)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except GroqError as exc:

@@ -105,6 +105,34 @@ Respond with ONLY valid JSON in this exact format:
 Do not include any text outside the JSON. Each justification must be non-empty and reference specific content from the submission."""
 
 
+def build_scoring_text(
+    raw_text: str, image_descriptions: list[dict[str, Any]] | None
+) -> str:
+    """Combine raw text and image descriptions into the scoring input.
+
+    v0.3.5: image descriptions are appended as a delimited section so
+    the scoring prompts themselves need no changes. When there are no
+    descriptions (no images, or understanding skipped/failed), the raw
+    text is returned unchanged.
+    """
+    if not image_descriptions:
+        return raw_text
+
+    lines = [raw_text, "", "---IMAGE DESCRIPTIONS---"]
+    for entry in image_descriptions:
+        page = entry.get("page", "?")
+        classification = entry.get("classification") or "image"
+        description = entry.get("description")
+        if description:
+            lines.append(f"[Page/slide {page}] ({classification}): {description}")
+        else:
+            lines.append(
+                f"[Page/slide {page}] ({classification}): "
+                "(image present but not yet described - pending human review)"
+            )
+    return chr(10).join(lines)
+
+
 def _build_user_message(parsed_text: str) -> str:
     """Build the user message containing the parsed submission text."""
     return f"""Here is the parsed text from the hackathon submission:
