@@ -52,11 +52,16 @@ class ParsedDocument:
         source_format: One of ``pdf`` or ``pptx``.
         raw_text: The full extracted text joined together.
         sections: A list of per-page (PDF) or per-slide (PPTX) text chunks.
+        image_descriptions: Vision-LLM descriptions of embedded images
+            (v0.3.5), populated by the image pipeline after extraction.
+            Empty when the file has no (usable) images or image
+            understanding was skipped/failed.
     """
 
     source_format: str
     raw_text: str
     sections: list[dict[str, Any]] = field(default_factory=list)
+    image_descriptions: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _extract_pdf(file_bytes: bytes) -> ParsedDocument:

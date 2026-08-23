@@ -23,6 +23,26 @@ class Settings:
         )
         self.groq_api_key: str = os.getenv("GROQ_API_KEY", "")
 
+        # --- Image understanding (v0.3.5) -----------------------------
+        # Groq vision model used to describe diagram-like images.
+        # qwen/qwen3.6-27b is verified vision-capable on the free tier.
+        self.groq_vision_model: str = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
+        # Local CLIP zero-shot classifier (open_clip).
+        self.clip_model: str = os.getenv("CLIP_MODEL", "ViT-B-32")
+        self.clip_pretrained: str = os.getenv("CLIP_PRETRAINED", "openai")
+        # At/above this CLIP confidence the top label is trusted for
+        # three-tier routing; below it, images are flagged for review.
+        self.image_classify_threshold: float = float(
+            os.getenv("IMAGE_CLASSIFY_THRESHOLD", "0.7")
+        )
+        # Hamming distance at/below which two pHashes count as the
+        # same image (within-submission dedupe and cache near-match).
+        self.phash_hamming_threshold: int = int(
+            os.getenv("PHASH_HAMMING_THRESHOLD", "8")
+        )
+        # Images smaller than this on either side are skipped as icons.
+        self.min_image_dimension: int = int(os.getenv("MIN_IMAGE_DIMENSION", "64"))
+
     @property
     def is_configured(self) -> bool:
         """True when the required Supabase credentials are present."""

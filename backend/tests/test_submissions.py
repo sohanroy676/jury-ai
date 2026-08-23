@@ -29,13 +29,20 @@ def _mock_supabase(monkeypatch):
             "status": "submitted",
         }
 
-    def fake_insert_parsed(submission_id, raw_text, sections, source_format):
+    def fake_insert_parsed(
+        submission_id,
+        raw_text,
+        sections,
+        source_format,
+        image_descriptions=None,
+    ):
         return {
             "id": "00000000-0000-0000-0000-000000000002",
             "submission_id": submission_id,
             "raw_text": raw_text,
             "sections": sections,
             "source_format": source_format,
+            "image_descriptions": image_descriptions or [],
         }
 
     monkeypatch.setattr(supabase, "upload_submission_file", fake_upload)

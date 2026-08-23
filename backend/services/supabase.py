@@ -91,7 +91,11 @@ def insert_submission(team_name: str, file_url: str, file_type: str) -> dict:
 
 
 def insert_parsed_submission(
-    submission_id: str, raw_text: str, sections: list[dict], source_format: str
+    submission_id: str,
+    raw_text: str,
+    sections: list[dict],
+    source_format: str,
+    image_descriptions: list[dict] | None = None,
 ) -> dict:
     """Insert a parsed-submission row into Supabase Postgres.
 
@@ -100,6 +104,8 @@ def insert_parsed_submission(
         raw_text: The full extracted text.
         sections: Per-page/slide text chunks (JSON-serializable).
         source_format: One of ``pdf`` or ``pptx``.
+        image_descriptions: Vision-LLM descriptions of embedded images
+            (v0.3.5). Defaults to an empty list.
 
     Returns:
         The inserted row as a dict.
@@ -114,6 +120,7 @@ def insert_parsed_submission(
                 "raw_text": raw_text,
                 "sections": sections,
                 "source_format": source_format,
+                "image_descriptions": image_descriptions or [],
             }
         )
         .execute()
@@ -146,6 +153,77 @@ def get_parsed_submission(submission_id: str) -> dict | None:
         return None
 
     return result.data
+
+
+def get_cached_image(phash: str) -> dict | None:
+    """Look up a cached image classification/description by perceptual hash.
+
+    Tries an exact phash match first. If none, scans cached hashes for
+    a near-match within ``settings.phash_hamming_threshold`` so slightly
+    recompressed copies of a shared template image still hit the cache.
+
+    Args:
+        phash: Hex perceptual hash of the image.
+
+    Returns:
+        A dict with ``phash``, ``classification``, ``confidence``, and
+        ``description``, or ``None`` on miss.
+    """
+    import imagehash
+
+    from backend.config import settings
+
+    client = get_client()
+
+    columns = "phash, classification, confidence, description"
+
+    # --- Exact match first.
+    exact = (
+        client.table("image_cache")
+        .select(columns)
+        .eq("phash", phash)
+        .limit(1)
+        .execute()
+    )
+    if exact.data:
+        return exact.data[0]
+
+    # --- Near-match scan (hamming distance <= threshold).
+    threshold = settings.phash_hamming_threshold
+    candidates = client.table("image_cache").select(columns).execute()
+    if not candidates.data:
+        return None
+
+    target = imagehash.hex_to_hash(phash)
+    best_row: dict | None = None
+    best_distance = threshold + 1
+
+    for row in candidates.data:
+        try:
+            distance = target - imagehash.hex_to_hash(row["phash"])
+        except (ValueError, TypeError):
+            continue  # malformed stored hash — skip it
+        if distance < best_distance:
+            best_row = row
+            best_distance = distance
+
+    return best_row
+
+
+def upsert_image_cache(
+    phash: str, classification: str, confidence: float, description: str | None
+) -> None:
+    """Insert or update an entry in the image cache, keyed by phash."""
+    client = get_client()
+
+    client.table("image_cache").upsert(
+        {
+            "phash": phash,
+            "classification": classification,
+            "confidence": confidence,
+            "description": description,
+        }
+    ).execute()
 
 
 def insert_scores(
