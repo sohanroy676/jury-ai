@@ -15,4 +15,4 @@
 
 ## In progress
 
-- (none — v0.3.0 committed on `feature/v0.3.0-scoring-agent`; next is v0.4.0 checkpoint)
+- v0.3.5 — Visual content understanding: IMPLEMENTED on `feature/v0.3.5-image-understanding` (commits `0292b7f`, `a85e92c`, `d8e063d`), NOT yet live-verified or merged. Adds `agents/parsing/images/` (extract with PPTX structural filter, pHash dedupe, local CLIP zero-shot classifier via open_clip ViT-B-32, Groq vision describer, orchestration pipeline with injected cache callables), migrations `0004_create_image_cache.sql` + `0005_add_image_descriptions.sql`, `image_descriptions` on `ParsedDocument`/`parsed_submissions`, upload-route wiring with graceful degradation, and `build_scoring_text()` merging descriptions into the scoring input (prompts unchanged). Vision provider: `qwen/qwen3.6-27b` (verified vision-capable on this account; llama-4-scout 404s, groq/compound rejects image parts). Tests: 101 total pass; ruff clean. REMAINING: user runs the two new migrations in Supabase, live end-to-end DoD verification (real diagram PDF/PPTX, recompressed banner, cache reuse across submissions, scoring comparability), then merge + tag. — 2026-08-23

@@ -33,6 +33,11 @@
 - **Extracted text is normalized to ASCII-safe characters.** `normalize_unicode_dashes()` in the parsing agent converts typographic dash variants (U+2010–U+2014, U+2212) to plain hyphens at extraction time; the scoring agent applies the same function to LLM justifications. Never store or prompt with raw typographic dashes — they break Windows consoles and downstream consumers.
 - **Groq retry policy.** Only `RateLimitError` (429) and `APIConnectionError` are retried, with exponential backoff (1s doubling, max 3 retries). Malformed/invalid JSON responses get a corrective re-prompt retry loop in `score_submission`. All other Groq errors propagate immediately.
 - **Default Groq model is `openai/gpt-oss-120b`.** `llama-3.3-70b-versatile` was removed from Groq's free tier (404 model_not_found) — do not reference it in new code.
+- **Image understanding is a DB-free pipeline with injected dependencies.** `agents/parsing/images/pipeline.py` takes `cache_get`/`cache_put` (and optionally `classify_fn`/`describe_fn`) callables — agents never import Supabase; the backend injects service functions. Cache lookup = exact phash match, then near-match scan within `PHASH_HAMMING_THRESHOLD`, centralized in the Supabase service layer.
+- **Image-stage failures degrade gracefully; they never block uploads.** Classification failure -> skip that image; description failure -> store `description: null` + `needs_human_review: true` and don't cache (retryable); whole-pipeline failure at the route -> log warning, store empty descriptions.
+- **Cache-first image classification.** Check `image_cache` by perceptual hash BEFORE calling CLIP or the vision LLM; only successful descriptions are cached (failures stay retryable); high-confidence decorative images are dropped and never cached.
+- **Groq vision model is `qwen/qwen3.6-27b`** (`GROQ_VISION_MODEL`). llama-4-scout 404s on free accounts; groq/compound rejects multimodal content parts. qwen responses include reasoning blocks — always strip them before storing/using the text (see `describe.py::_strip_think_blocks`).
+- **pHash test fixtures must be structurally distinct shapes.** Flat colors and simple half-plane fills alias together in pHash space (distances as low as 4 between "different" images). Verify fixture separation empirically with `scripts/check_phash_distances.py`.
 
 ## Things to avoid
 
