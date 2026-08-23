@@ -38,6 +38,9 @@
 - **Cache-first image classification.** Check `image_cache` by perceptual hash BEFORE calling CLIP or the vision LLM; only successful descriptions are cached (failures stay retryable); high-confidence decorative images are dropped and never cached.
 - **Groq vision model is `qwen/qwen3.6-27b`** (`GROQ_VISION_MODEL`). llama-4-scout 404s on free accounts; groq/compound rejects multimodal content parts. qwen responses include reasoning blocks — always strip them before storing/using the text (see `describe.py::_strip_think_blocks`).
 - **pHash test fixtures must be structurally distinct shapes.** Flat colors and simple half-plane fills alias together in pHash space (distances as low as 4 between "different" images). Verify fixture separation empirically with `scripts/check_phash_distances.py`.
+- **Never use PostgREST `.single()` for optional lookups.** It RAISES `APIError PGRST116` on zero rows instead of returning empty data (caused an unhandled 500 when scoring a missing submission id). Use `.limit(1)` + explicit `None` return — see `get_parsed_submission`.
+- **Groq free tier has per-model tokens-per-DAY caps** (qwen3.6-27b: 200k TPD) on top of RPM limits — vision calls burn thousands of tokens each, so heavy testing exhausts the day budget fast. When exhausted, every call 429s until the window resets; failed descriptions degrade to `null` + review flag and auto-retry on later uploads.
+- **Rate-limit circuit breaker inside a pipeline run:** once describe() exhausts its retries on a 429, remaining images skip the vision call entirely (flagged, uncached) instead of burning doomed calls — quota is respected and failures stay retryable across submissions.
 
 ## Things to avoid
 
