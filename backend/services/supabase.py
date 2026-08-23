@@ -141,18 +141,22 @@ def get_parsed_submission(submission_id: str) -> dict | None:
     """
     client = get_client()
 
+    # NOTE: deliberately NOT using .single() — PostgREST raises
+    # APIError PGRST116 on zero rows with .single(), which surfaced as
+    # an unhandled 500 when scoring an unknown/unparsed submission id.
+    # limit(1) + explicit None keeps the documented dict | None contract.
     result = (
         client.table("parsed_submissions")
         .select("*")
         .eq("submission_id", submission_id)
-        .single()
+        .limit(1)
         .execute()
     )
 
     if not result.data:
         return None
 
-    return result.data
+    return result.data[0]
 
 
 def get_cached_image(phash: str) -> dict | None:
