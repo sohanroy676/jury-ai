@@ -29,14 +29,18 @@ DEFAULT_VISION_MODEL = "qwen/qwen3.6-27b"
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0
 MAX_DESCRIPTION_WORDS = 150
-MAX_TOKENS = 1024
+# Generous budget: qwen3.6 reasons before answering, and a reasoning
+# block cut off by the token limit means no usable description at all.
+MAX_TOKENS = 2048
 
-# qwen-style reasoning blocks to strip from responses. Built via
-# concatenation because literal XML-looking tags do not survive being
-# written into source files.
+# qwen-style reasoning blocks to strip from responses. Handles BOTH a
+# closed block and one cut off by the token limit (opening tag with no
+# closer -> strip everything from the opening tag to the end). Built
+# via concatenation because literal XML-looking tags do not survive
+# being written into source files.
 _THINK_TAG = "think"
 _THINK_RE = re.compile(
-    "<" + _THINK_TAG + r">.*?</" + _THINK_TAG + ">",
+    "<" + _THINK_TAG + r">.*?</" + _THINK_TAG + r">|<" + _THINK_TAG + r">.*\Z",
     re.DOTALL,
 )
 

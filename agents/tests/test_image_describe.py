@@ -82,6 +82,29 @@ def test_describe_strips_think_blocks(monkeypatch):
     assert result == "The diagram shows a client-server-database flow."
 
 
+def test_describe_strips_unterminated_think_block(monkeypatch):
+    """A reasoning block cut off by the token limit (no closing tag) is
+    stripped to the end; if nothing remains, that's an empty response."""
+    tag_name = "think"
+    open_tag = "<" + tag_name + ">"
+    # Truncated: opening tag, reasoning, but NO closing tag.
+    truncated = open_tag + " The user wants a description of the provided"
+    client = _mock_client(content=truncated)
+    monkeypatch.setattr(describe_module, "_get_groq_client", lambda key: client)
+
+    with pytest.raises(ValueError, match="empty description"):
+        describe_image(b"\x89PNG fake bytes", groq_api_key="test-key")
+
+    # Closed block followed by an answer still strips correctly.
+    good = open_tag + " reasoning" + ("</" + tag_name + ">") + "A bar chart."
+    client2 = _mock_client(content=good)
+    monkeypatch.setattr(describe_module, "_get_groq_client", lambda key: client2)
+
+    assert (
+        describe_image(b"\x89PNG fake bytes", groq_api_key="test-key") == "A bar chart."
+    )
+
+
 def test_describe_normalizes_unicode_dashes(monkeypatch):
     """Typographic dashes in the description become ASCII hyphens."""
     client = _mock_client(content="flow \u2014 left to right \u2013 staged")
