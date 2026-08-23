@@ -4,7 +4,7 @@
 
 ## Now
 
-- v0.4.0 — Checkpoint: core loop (upload → parse → score) demoable end to end before adding multi-agent complexity.
+- v0.3.5 — Visual content understanding (diagrams, flowcharts, architecture images)
 
 ## Done
 
@@ -14,6 +14,7 @@
 
 ## Next
 
+- v0.4.0 — Checkpoint: core loop (upload → parse → score) demoable end to end before adding multi-agent complexity.
 - v0.5.0 — Multi-agent split: four specialist agents (problem fit, technical depth, feasibility, innovation) running in parallel, technical depth inferred from document content only (no GitHub dependency).
 - v0.6.0 — Weighted scoring + ranking: configurable rubric, composite score, ranked leaderboard, shortlist cutoff.
 - v0.7.0 — Feedback agent + export: written per-team rationale, CSV export, per-team PDF export.

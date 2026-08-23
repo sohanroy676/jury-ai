@@ -21,11 +21,19 @@ This guide walks you through getting the free-tier Supabase credentials you need
 | `SUPABASE_ANON_KEY` | **anon public** key | Safe for the frontend/browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | **service_role** key | **Server-side only.** Never expose to the frontend. Bypasses RLS. |
 
-## 3. Create the `submissions` table
+## 3. Run the database migrations
+
+Apply each migration file from `infra/migrations/` **in filename order**:
 
 1. In the dashboard, go to **SQL Editor**.
-2. Open `infra/migrations/0001_create_submissions.sql` from this repo and paste its contents.
-3. Click **Run**. You should see the `submissions` table created under **Table Editor**.
+2. For each of the following files, paste its contents into the editor and click **Run**:
+   - `0001_create_submissions.sql` — creates the `submissions` table
+   - `0002_create_parsed_submissions.sql` — creates the `parsed_submissions` table
+   - `0003_create_scores.sql` — creates the `scores` table
+   - `0004_create_image_cache.sql` — creates the `image_cache` table *(v0.3.5)*
+   - `0005_add_image_descriptions.sql` — adds the `image_descriptions` column to `parsed_submissions` *(v0.3.5)*
+3. After all migrations you should see the tables under **Table Editor**: `submissions`, `parsed_submissions`, `scores`, `image_cache`.
+
 
 ## 4. Create the Storage bucket
 
@@ -42,6 +50,9 @@ This guide walks you through getting the free-tier Supabase credentials you need
 2. Fill in the values from step 2, plus:
    - `SUPABASE_DB_PASSWORD` — the database password you set in step 1.
    - `SUPABASE_STORAGE_BUCKET=submissions` — already set by default.
+   - `GROQ_API_KEY` — required for scoring and image descriptions (free key at console.groq.com).
+
+   The image-understanding variables (`GROQ_VISION_MODEL`, `CLIP_MODEL`, `CLIP_PRETRAINED`, `IMAGE_CLASSIFY_THRESHOLD`, `PHASH_HAMMING_THRESHOLD`, `MIN_IMAGE_DIMENSION`) have sensible defaults — see `.env.example` if you want to override them.
 
 > **Security:** `.env` is git-ignored. Never commit it. The `service_role` key in particular must never appear in frontend code or be committed.
 
@@ -53,6 +64,8 @@ uvicorn backend.main:app --reload
 ```
 
 The API will be available at <http://localhost:8000> (docs at `/docs`).
+
+> **First-run note (image understanding, v0.3.5):** the local CLIP classifier downloads ~350 MB of model weights on first use and caches them locally — the first upload containing images will take a few extra minutes. Subsequent runs are fast. On Windows, `pip install torch` installs the CPU-only build by default; no GPU is needed.
 
 ## 7. Run the frontend
 
