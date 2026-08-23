@@ -12,11 +12,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
-from backend.services.supabase import get_client  # noqa: E402
+from backend.services.supabase import get_client
 
 
 def truncate(text: str | None, limit: int = 90) -> str:
@@ -66,10 +66,14 @@ def main() -> None:
             continue
         p = rows[0]
         print(f"  {s['id']} ({s['team_name']}):")
-        print(f"    source_format={p['source_format']}  sections={len(p['sections'])}"
-              f"  raw_text_chars={len(p['raw_text'] or '')}")
+        print(
+            f"    source_format={p['source_format']}  sections={len(p['sections'])}"
+            f"  raw_text_chars={len(p['raw_text'] or '')}"
+        )
         descs = p.get("image_descriptions") or []
-        print(f"    image_descriptions: {len(descs)} entr{'y' if len(descs)==1 else 'ies'}")
+        print(
+            f"    image_descriptions: {len(descs)} entr{'y' if len(descs) == 1 else 'ies'}"
+        )
         for d in descs:
             flag = "  [NEEDS HUMAN REVIEW]" if d.get("needs_human_review") else ""
             print(

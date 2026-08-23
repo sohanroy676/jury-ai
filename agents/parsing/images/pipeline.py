@@ -28,6 +28,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from groq import RateLimitError
+
 from agents.parsing.images.classify import DECORATIVE_LABELS, classify_image
 from agents.parsing.images.dedupe import DEFAULT_PHASH_THRESHOLD, dedupe_images
 from agents.parsing.images.describe import describe_image
@@ -76,6 +78,7 @@ def process_submission_images(
     describe = describe_fn or describe_image
 
     descriptions: list[dict[str, Any]] = []
+    rate_limited = False
 
     for hashed in dedupe_images(images, threshold=phash_threshold):
         phash = hashed.phash
@@ -131,13 +134,33 @@ def process_submission_images(
 
         # --- Describe with the vision model (diagram-like or ambiguous).
         description: str | None = None
-        try:
-            description = describe(image.image_bytes)
-        except Exception:
+        if rate_limited:
+            # A persistent rate limit was hit earlier THIS run; don't
+            # burn more doomed calls — flag for review instead. Failed
+            # entries are not cached, so later submissions retry them.
             logger.warning(
-                "Image description failed for phash %s", phash, exc_info=True
+                "Vision API rate-limited earlier this run; storing phash "
+                "%s without a description",
+                phash,
             )
             needs_review = True
+        else:
+            try:
+                description = describe(image.image_bytes)
+            except RateLimitError:
+                # Persistent: retries were exhausted inside describe().
+                rate_limited = True
+                logger.warning(
+                    "Vision API rate limit exhausted for phash %s; "
+                    "skipping descriptions for remaining images this run",
+                    phash,
+                )
+            except Exception:
+                logger.warning(
+                    "Image description failed for phash %s", phash, exc_info=True
+                )
+            if description is None:
+                needs_review = True
 
         descriptions.append(
             {

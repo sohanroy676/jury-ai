@@ -13,7 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
@@ -100,7 +100,8 @@ def inspect_file(path: str) -> None:
             for shape in shapes:
                 try:
                     st = shape.shape_type
-                except Exception:  # noqa: BLE001 - inspection only
+                except Exception as exc:  # noqa: BLE001 - inspection only; skip unreadable shapes
+                    print(f"    (skipping shape with unreadable type: {exc})")
                     continue
                 if st == MSO_SHAPE_TYPE.GROUP:
                     n += count_pictures(shape.shapes)
@@ -108,9 +109,7 @@ def inspect_file(path: str) -> None:
                     n += 1
             return n
 
-        master_imgs = sum(
-            count_pictures(m.shapes) for m in prs.slide_masters
-        )
+        master_imgs = sum(count_pictures(m.shapes) for m in prs.slide_masters)
         layout_imgs = sum(
             count_pictures(layout.shapes)
             for m in prs.slide_masters

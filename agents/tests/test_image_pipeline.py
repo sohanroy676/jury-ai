@@ -5,7 +5,9 @@ so tests exercise the real orchestration/routing logic offline.
 """
 
 import io
+from unittest.mock import Mock
 
+from groq import RateLimitError
 from PIL import Image, ImageDraw
 
 from agents.parsing.images.dedupe import compute_phash
@@ -369,6 +371,42 @@ def test_classification_failure_skips_image():
     assert result == []
     assert describe.calls == []
     assert cache.put_calls == []
+
+
+def test_rate_limit_circuit_breaker_skips_subsequent_describes():
+    """Once a persistent rate limit is hit, remaining images skip the
+    vision call entirely (no doomed retries) and are stored as
+    description=None + needs_human_review=True, uncached."""
+    cache = FakeCache()
+    describe_calls: list[bytes] = []
+
+    def rate_limited_describe(image_bytes: bytes) -> str:
+        describe_calls.append(image_bytes)
+        raise RateLimitError("rate limited", response=Mock(), body=None)
+
+    result = process_submission_images(
+        [
+            ExtractedImage(1, _pattern_png("circle"), "pdf"),
+            ExtractedImage(2, _pattern_png("diag"), "pdf"),
+        ],
+        cache_get=cache.get,
+        cache_put=cache.put,
+        classify_fn=make_classify(
+            {
+                "b": ("architecture diagram", 0.9),
+                "a": ("flowchart", 0.85),
+            }
+        ),
+        describe_fn=rate_limited_describe,
+    )
+
+    # Exactly ONE doomed call was made; the second image skipped it.
+    assert len(describe_calls) == 1
+    assert len(result) == 2
+    for entry in result:
+        assert entry["description"] is None
+        assert entry["needs_human_review"] is True
+    assert cache.put_calls == []  # failures stay retryable
 
 
 def test_description_failure_keeps_entry_flagged_and_uncached():
