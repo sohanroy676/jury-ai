@@ -5,7 +5,7 @@
 ## Current focus
 **v0.4.0 checkpoint COMPLETE (on stacked branches, awaiting merge/tag approval).** Core loop is demoable end to end and LIVE-verified against real Supabase+Groq (upload 201 -> parse -> score 200 with agent_version v0.4.0 per score row -> GET detail/list readback). Shipped on the stack: read API (list + composed detail), mocked-loop integration test, version.py single source (0.4.0) with drift-guard tests, CHANGELOG rebuilt as newest-first per-version sections (+local tags v0.1.0/v0.2.0), README curl demo. Tests: backend 38 / agents 106 / frontend 3; ruff clean.
 
-Branch stack (all committed, none merged): fix/version-single-source -> chore/changelog-versioned-sections -> feature/v0.4.0-core-loop-checkpoint. Awaiting user approval to ff-merge to main, tag v0.4.0, regenerate CHANGELOG under the new section format, then push (incl. new tags).
+RELEASED: stack fast-forward-merged to `main`, tagged **v0.4.0** (at merge HEAD `b25a7d1`), CHANGELOG regenerated so v0.4.0 has its own dated section, pushed to origin with all tags (incl. backfilled v0.1.0/v0.2.0).
 
 ## Recent decisions
 - **v0.3.6 classification routing policy:** decorative-labeled images are NEVER vision-described (any confidence); genuine diagrams misread as decoration are rescued inside `classify_image` — if the best diagram-label probability ≥ `IMAGE_DIAGRAM_FLOOR` (env, default 0.30, calibrated on live scango probes: banners ≤0.27 for all diagram labels, misread process flow 0.32) the returned label becomes that diagram label. Rescue lives in classify.py (it owns the probs) so the pipeline keeps its 2-tuple ClassifyFn contract.
