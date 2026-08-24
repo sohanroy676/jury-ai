@@ -7,6 +7,7 @@
 
 ## Done
 
+- v0.3.6 — Optional Gemini vision describer: `VISION_PROVIDER=groq|gemini` (default `groq`) selects ONLY the image-describer in the pipeline; qwen/Groq path untouched and scoring/text stages stay Groq-only. Gemini talks to Google's REST endpoint via pinned httpx — the official `google-genai` SDK was doc-verified then REJECTED at install (needs httpx>=0.28 vs supabase==2.9.0's httpx<0.28; venv restored to exact pins). Added provider-neutral `VisionRateLimitError` (subclasses `groq.RateLimitError`, builds a synthetic httpx.Response(429) because groq's APIStatusError reads `response.request`) so the pipeline circuit breaker trips identically for both providers. Env: `GEMINI_API_KEY`, `GEMINI_VISION_MODEL` (default `gemini-2.5-flash`). `.env.example`, `docs/setup.md`, ADR-0003 updated. Tests: 125 pass (+20 new), ruff clean. Commit `c4a17a1` on `feature/v0.3.6-gemini-vision-provider` — NOT merged/tagged; live API verification pending user's GEMINI_API_KEY. — 2026-08-24
 - Unicode dash normalization fix — PDF/PPTX generators emit typographic dash variants (U+2010-U+2014, U+2212) that PyMuPDF/python-pptx extract verbatim and the LLM echoes into justifications. Added `normalize_unicode_dashes()` in the parsing agent (applied to all extracted PDF/PPTX text) and applied it to LLM justifications in the scoring agent. Also switched the scoring model from `llama-3.3-70b-versatile` (removed from Groq free tier, 404) to `openai/gpt-oss-120b` (roadmap alternative). Groq verified working end-to-end against a real submission. Tests: 41 total pass; ruff clean. Commits `869aaf7` (model fix) and `d5172bf` (dash normalization) on `feature/v0.3.0-scoring-agent`. — 2026-08-22
 - v0.3.0 — Single scoring agent: Groq-powered, hardcoded 4-criteria rubric (problem_fit, technical_depth, feasibility, innovation), structured JSON score output with retry/backoff for rate limits and malformed JSON recovery. Adds `agents/scoring/scorer.py`, `infra/migrations/0003_create_scores.sql`, `POST /api/submissions/{id}/score` endpoint, `get_parsed_submission` and `insert_scores` Supabase service functions. Committed on `feature/v0.3.0-scoring-agent` (commit `51e7fef`), not yet merged to `main`. — 2026-08-22
 - v0.2.0 — Parsing agent: extract structured text from PDF (PyMuPDF) and PPTX (python-pptx), chunk into sections, stored in a `parsed_submissions` table. Implemented and merged: committed directly on `main` as `ea558e7` (linear history — the earlier `feature/v0.2.0-parsing` note was inaccurate; no separate branch, no merge commit), followed by memory-bank docs commit `96fda45`. Adds `agents/parsing/extractor.py`, `infra/migrations/0002_create_parsed_submissions.sql`, `insert_parsed_submission` service, and parse-on-upload wiring in `POST /api/submissions`. Tests: 21 total (11 backend + 10 agents) pass; ruff clean. Local `main` in sync with `origin/main`. — 2026-08-21
@@ -15,7 +16,7 @@
 
 ## In progress
 
-- (none — v0.3.5 merged to main; awaiting user's TPD-reset verification before tagging)
+- v0.3.6 branch `feature/v0.3.6-gemini-vision-provider` awaiting user review/merge (+ optional live Gemini check with a real key). Separately, v0.3.5 tag still pending the TPD-reset scango.pdf verification.
 
 ## Done
 

@@ -3,9 +3,13 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-v0.3.5 (visual content understanding) is **merged to `main` and pushed — NOT yet tagged**. Live E2E verification was completed against two real files: Clarix.pptx fully green (descriptions, structural filter, review flags, ~14x cache speedup on duplicate upload, diagram-informed scoring); scango.pdf exposed Groq qwen3.6 free-tier **200k tokens-per-DAY cap** — post-exhaustion vision calls 429 and images degrade by design to `description: null` + `needs_human_review: true` (uncached, auto-retried on later uploads). Two fixes shipped from live testing: PGRST116 500 on missing parsed rows -> clean 404 (`b6e4097`), and a rate-limit circuit breaker so one exhausted quota doesn't burn doomed calls per remaining image (`89daf5b`). 105 tests pass; ruff clean.
+v0.3.6 (optional Gemini vision describer) implemented on `feature/v0.3.6-gemini-vision-provider` (commit `c4a17a1`): `VISION_PROVIDER=groq|gemini` selects only the image-describer; default groq/qwen untouched, scoring stays Groq-only. Gemini via REST over pinned httpx — the google-genai SDK was doc-verified then REJECTED on install (requires httpx>=0.28 vs supabase==2.9.0's httpx<0.28; venv restored to exact pins, `pip check` clean). 125 tests pass (+20 new); ruff clean. NOT merged or tagged. Still pending from v0.3.5: scango.pdf re-upload post-TPD-reset verification, then tag.
 
 ## Recent decisions
+- **v0.3.6 provider selection lives in the agents layer.** `pipeline._resolve_default_describer()` reads `VISION_PROVIDER` directly (mirroring how describe.py reads GROQ_* vars); `backend/config.py` mirrors the three new env vars for parity. Explicit `describe_fn` injection always wins; unknown provider values fail fast with a ValueError listing valid options.
+- **Gemini describer mirrors the Groq contract exactly:** same SYSTEM_PROMPT, `_image_mime` detection, defensive think-block strip, dash normalization, empty→ValueError (non-retryable), retry+backoff ONLY on HTTP 429 / httpx.TransportError, then raises `VisionRateLimitError`.
+- **VisionRateLimitError subclasses groq.RateLimitError** so pipeline's existing `except RateLimitError` breaker trips for Gemini without touching pipeline logic. Gotcha discovered: groq's APIStatusError.__init__ reads `response.request`, so passing response=None crashes — it builds a synthetic httpx.Response(429) internally instead.
+- **Default GEMINI model is `gemini-2.5-flash`** (the official SDK README's example model; all Gemini models are multimodal per 2026-08 docs). Overridable via `GEMINI_VISION_MODEL`; newer models are an env change, not code.
 - Chose FastAPI + Supabase (Postgres + Storage) for v0.1.0, matching the established tech-stack. No local SQLite fallback — real Supabase keys will be added.
 - Backend upload endpoint: `POST /api/submissions` validates file type (.pdf/.pptx) and size (50 MB), uploads to Supabase Storage, inserts a `submissions` row.
 - Frontend: minimal Next.js upload portal with client-side file-type validation.
@@ -29,4 +33,4 @@ v0.3.5 (visual content understanding) is **merged to `main` and pushed — NOT y
 - User accidentally deleted some table entries earlier (orphaned submission dd5f3f5a...); harmless after the PGRST116 fix.
 
 ## Next step
-- After the Groq TPD window resets: re-upload `scango.pdf`, confirm the page 5/6/7 diagrams land in `image_cache`, then tag `v0.3.5` on `main` and push the tag. Afterwards, start v0.4.0 checkpoint in a fresh session per session-efficiency rules.
+- Review/merge `feature/v0.3.6-gemini-vision-provider`. Optional live check first: set `VISION_PROVIDER=gemini` + real `GEMINI_API_KEY` in `.env`, upload an image-bearing PDF, confirm descriptions land. Separately: after the Groq TPD reset, re-upload `scango.pdf`, confirm diagrams land in `image_cache`, then tag `v0.3.5` on main and push. Afterwards start v0.4.0 checkpoint in a fresh session per session-efficiency rules.
