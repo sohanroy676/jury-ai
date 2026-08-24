@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes import scoring, submissions
+from backend.routes import ranking, scoring, submissions
 from version import APP_VERSION
 
 # Allowed frontend origins (comma-separated in FRONTEND_URL env var).
@@ -32,6 +32,7 @@ app.add_middleware(
 
 app.include_router(submissions.router)
 app.include_router(scoring.router)
+app.include_router(ranking.router)
 
 
 @app.get("/health")

@@ -7,6 +7,7 @@ backend never deals with Supabase internals directly.
 
 from supabase import Client, create_client
 
+from agents.scoring.base import CRITERIA_NAMES
 from backend.config import settings
 
 
@@ -331,5 +332,80 @@ def get_scores(submission_id: str) -> list[dict]:
         .order("scored_at")
         .execute()
     )
+
+    return list(result.data or [])
+
+
+# --- Rubric config + ranking inputs (v0.6.0) --------------------------
+
+
+def get_rubric(hackathon_id: str) -> dict[str, float] | None:
+    """Fetch configured criterion weights for a hackathon.
+
+    Args:
+        hackathon_id: Hackathon scope key ('default' unless multi-hackathon
+            support lands later).
+
+    Returns:
+        ``{criterion: weight}`` or ``None`` when nothing is configured
+        (the caller falls back to equal weights). Rows with unknown
+        criteria are ignored defensively; an all-unknown result counts
+        as unconfigured.
+    """
+    client = get_client()
+
+    result = (
+        client.table("rubric_config")
+        .select("criterion, weight")
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
+
+    rubric = {
+        row["criterion"]: float(row["weight"])
+        for row in (result.data or [])
+        if row.get("criterion") in CRITERIA_NAMES
+    }
+    return rubric or None
+
+
+def upsert_rubric(hackathon_id: str, weights: dict[str, float]) -> dict[str, float]:
+    """Insert or update one rubric row per criterion for a hackathon.
+
+    Args:
+        hackathon_id: Hackathon scope key.
+        weights: Normalized fractions keyed by criterion (validated by
+            the route via ``validate_weights``).
+
+    Returns:
+        The stored weights as ``{criterion: weight}``.
+    """
+    client = get_client()
+
+    rows = [
+        {"hackathon_id": hackathon_id, "criterion": criterion, "weight": float(weight)}
+        for criterion, weight in weights.items()
+    ]
+    result = (
+        client.table("rubric_config")
+        .upsert(rows, on_conflict="hackathon_id,criterion")
+        .execute()
+    )
+
+    stored = {row["criterion"]: float(row["weight"]) for row in (result.data or [])}
+    # Fall back to the input when the API echoes nothing unexpected.
+    return stored or {c: float(w) for c, w in weights.items()}
+
+
+def get_all_scores() -> list[dict]:
+    """Fetch every score row (ranking input), minimal columns.
+
+    Returns:
+        A list of rows with ``submission_id``, ``criterion``, ``score``;
+        empty when nothing has been scored yet.
+    """
+    client = get_client()
+
+    result = client.table("scores").select("submission_id, criterion, score").execute()
 
     return list(result.data or [])
