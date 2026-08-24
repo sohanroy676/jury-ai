@@ -3,7 +3,7 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-v0.3.6 image-quality fix on `fix/vision-classification-routing` (commit `9065e11`): CLIP was mislabeling real diagrams as decoration at sub-threshold confidence AND describing obvious banners/headers. New behavior: `classify_image` rescues decorative-topped images when a diagram label clears `IMAGE_DIAGRAM_FLOOR` (0.30); pipeline never describes decorative-labeled images regardless of confidence; QuickGELU forced for openai weights. Live-verified on scango.pdf: 3 describes / 11 drops, warning gone. Branch stack: main → feature/v0.3.6-gemini-vision-provider → fix/v0.3.6-gemini-model-404 → fix/vision-classification-routing (all unmerged, unpushed). Tests: 133 pass; ruff clean.
+**Clean slate for v0.4.0.** All v0.3.6 work is merged to `main`, tagged (**v0.3.5** @ `937a78f`, **v0.3.6** @ merged HEAD) and pushed to origin. Shipped this cycle: optional Gemini vision provider (`VISION_PROVIDER=gemini`, REST over pinned httpx, `gemini-3.6-flash` default), provider-neutral rate-limit breaker, decorative-image drop policy with diagram-floor rescue (`IMAGE_DIAGRAM_FLOOR`), QuickGELU correction. 133 tests pass; ruff clean; CHANGELOG regenerated via git-cliff.
 
 ## Recent decisions
 - **v0.3.6 classification routing policy:** decorative-labeled images are NEVER vision-described (any confidence); genuine diagrams misread as decoration are rescued inside `classify_image` — if the best diagram-label probability ≥ `IMAGE_DIAGRAM_FLOOR` (env, default 0.30, calibrated on live scango probes: banners ≤0.27 for all diagram labels, misread process flow 0.32) the returned label becomes that diagram label. Rescue lives in classify.py (it owns the probs) so the pipeline keeps its 2-tuple ClassifyFn contract.
@@ -35,4 +35,4 @@ v0.3.6 image-quality fix on `fix/vision-classification-routing` (commit `9065e11
 - User accidentally deleted some table entries earlier (orphaned submission dd5f3f5a...); harmless after the PGRST116 fix.
 
 ## Next step
-- Review/merge `feature/v0.3.6-gemini-vision-provider`. Optional live check first: set `VISION_PROVIDER=gemini` + real `GEMINI_API_KEY` in `.env`, upload an image-bearing PDF, confirm descriptions land. Separately: after the Groq TPD reset, re-upload `scango.pdf`, confirm diagrams land in `image_cache`, then tag `v0.3.5` on main and push. Afterwards start v0.4.0 checkpoint in a fresh session per session-efficiency rules.
+- Start the **v0.4.0 checkpoint** in a fresh session: make upload → parse → score demoable end to end (single Groq scoring agent already exists; wire/verify the full loop against real files, run the roadmap's v0.4.0 test checklist, then tag). Per session-efficiency rules, begin from the memory bank.

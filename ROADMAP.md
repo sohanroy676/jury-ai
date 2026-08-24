@@ -4,13 +4,12 @@
 
 ## Now
 
-- Review/merge `feature/v0.3.6-gemini-vision-provider` (optional Gemini image-describer; live check optional with a real `GEMINI_API_KEY`).
-- Verify v0.3.5 after Groq TPD reset: re-upload scango.pdf, confirm diagrams land in image_cache, then tag v0.3.5.
+- v0.4.0 — Checkpoint: core loop (upload → parse → score) demoable end to end before adding multi-agent complexity. Start in a fresh session.
 
 ## Done
 
-- v0.3.6 — Optional Gemini vision provider for image descriptions: VISION_PROVIDER switch, Groq/qwen default unchanged, scoring untouched; REST-over-httpx (no new dependency). Committed on feature branch — merge pending review. (2026-08-24)
-- v0.3.5 — Visual content understanding (diagrams, flowcharts, architecture images): merged to main; tag pending post-reset verification. (2026-08-23)
+- v0.3.6 — Optional Gemini vision provider for image descriptions + model-404 fix + classification-routing fix: VISION_PROVIDER switch, gemini-3.6-flash default (REST over pinned httpx), decorative images never described, diagram-floor rescue relabels misread diagrams. Merged to `main` and tagged **v0.3.6**. (2026-08-24)
+- v0.3.5 — Visual content understanding (diagrams, flowcharts, architecture images): merged to main; verified live (scango.pdf end-to-end, image_cache populated) and tagged **v0.3.5**. (2026-08-23)
 - v0.3.0 — Single scoring agent: Groq-powered, hardcoded rubric, structured JSON score output. (2026-08-22)
 - v0.2.0 — Parsing agent: extract structured text from both PDF (PyMuPDF) and PPTX (python-pptx). (2026-08-21)
 - v0.1.0 — Project skeleton: upload portal, Supabase DB + storage wired, submissions stored on upload. (2026-08-20)
