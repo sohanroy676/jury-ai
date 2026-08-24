@@ -100,6 +100,73 @@ def test_classify_confidence_in_unit_range(monkeypatch):
     assert 0.0 <= confidence <= 1.0
 
 
+# --- Ambiguous-decorative rescue (v0.3.6) ------------------------------------
+
+
+def test_ambiguous_decorative_relabelled_to_best_diagram(monkeypatch):
+    """Decorative top + a diagram label above the floor -> the diagram
+    label wins so the pipeline describes it (live scango.pdf case:
+    process-flow infographic scored logo 0.63 / flowchart 0.26)."""
+    probs = [0.05, 0.32, 0.03, 0.17, 0.40, 0.03]  # logo tops, flowchart second
+    _patch_model(monkeypatch, probs)
+
+    label, confidence = classify_image(_png_bytes())
+
+    assert label == "flowchart"
+    assert abs(confidence - 0.32) < 0.02
+
+
+def test_rescue_is_inclusive_at_the_floor(monkeypatch):
+    """A diagram probability exactly at the floor qualifies."""
+    probs = [0.05, 0.30, 0.03, 0.19, 0.41, 0.02]  # logo .41 top, flowchart .30
+    _patch_model(monkeypatch, probs)
+
+    label, confidence = classify_image(_png_bytes())
+
+    assert label == "flowchart"
+    assert abs(confidence - 0.30) < 0.02
+
+
+def test_decorative_top_stays_when_diagram_below_floor(monkeypatch):
+    """No competitive diagram label -> keeps the honest decorative top."""
+    probs = [0.10, 0.10, 0.05, 0.15, 0.58, 0.02]  # logo .58, diagrams weak
+    _patch_model(monkeypatch, probs)
+
+    label, confidence = classify_image(_png_bytes())
+
+    assert label == "logo or icon"
+    assert abs(confidence - 0.58) < 0.02
+
+
+def test_high_confidence_decorative_not_relabelled(monkeypatch):
+    """Confident decoration is never swapped for a weaker diagram guess."""
+    probs = [0.01, 0.01, 0.01, 0.03, 0.90, 0.04]
+    _patch_model(monkeypatch, probs)
+
+    label, confidence = classify_image(_png_bytes())
+
+    assert label == "logo or icon"
+    assert abs(confidence - 0.90) < 0.02
+
+
+def test_diagram_floor_env_override(monkeypatch):
+    """IMAGE_DIAGRAM_FLOOR raises/lowers the rescue threshold."""
+    # Logo tops at 0.46 with flowchart at 0.28: below the 0.30 default,
+    # above a lowered 0.25 floor.
+    probs = [0.06, 0.28, 0.04, 0.12, 0.46, 0.04]
+    _patch_model(monkeypatch, probs)
+
+    monkeypatch.setenv("IMAGE_DIAGRAM_FLOOR", "0.25")
+    label, confidence = classify_image(_png_bytes())
+    assert label == "flowchart"
+    assert abs(confidence - 0.28) < 0.02
+
+    monkeypatch.setenv("IMAGE_DIAGRAM_FLOOR", "0.45")
+    label, confidence = classify_image(_png_bytes())
+    assert label == "logo or icon"
+    assert abs(confidence - 0.46) < 0.02
+
+
 def test_labels_match_roadmap_specification():
     """The candidate labels are exactly the roadmap's six."""
     assert CLASSIFICATION_LABELS == [

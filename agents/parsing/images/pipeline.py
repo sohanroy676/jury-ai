@@ -7,11 +7,13 @@ Database access is injected via callables so this module — and the
 agents layer as a whole — never touches Supabase directly. Passing
 ``None`` for either callable runs fully offline (no caching).
 
-Three-tier routing per the roadmap:
+Three-tier routing per the roadmap (v0.3.6 refinement):
   - high-confidence diagram/flowchart/chart -> vision description
-  - high-confidence photo/logo/decorative   -> dropped, nothing stored,
-    no vision call, not cached
-  - low-confidence / ambiguous              -> vision description tagged
+  - decorative-labeled, ANY confidence       -> dropped, nothing stored,
+    no vision call, not cached (genuine diagrams mislabeled as
+    decorative are rescued upstream in classify.py via the
+    diagram-floor relabel)
+  - other low-confidence / ambiguous         -> vision description tagged
     ``needs_human_review=True``
 
 Failure semantics (graceful degradation):
@@ -153,8 +155,12 @@ def process_submission_images(
             continue
 
         # --- Three-tier routing.
-        if confidence >= confidence_threshold and label in DECORATIVE_LABELS:
-            # Template decoration: drop, store nothing, don't cache.
+        if label in DECORATIVE_LABELS:
+            # Decorative-labeled images are never described — confident
+            # or not. Template banners/logos would only waste vision
+            # quota; genuinely diagram-like images that CLIP misread as
+            # decorative were already relabelled upstream by the
+            # diagram-floor rescue in classify_image.
             continue
 
         needs_review = confidence < confidence_threshold

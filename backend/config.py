@@ -46,6 +46,11 @@ class Settings:
         self.image_classify_threshold: float = float(
             os.getenv("IMAGE_CLASSIFY_THRESHOLD", "0.7")
         )
+        # When the top label is decorative but the best diagram-label
+        # probability reaches this floor, classify_image returns that
+        # diagram label instead (rescues misread diagrams from being
+        # treated as decoration).
+        self.image_diagram_floor: float = float(os.getenv("IMAGE_DIAGRAM_FLOOR", "0.3"))
         # Hamming distance at/below which two pHashes count as the
         # same image (within-submission dedupe and cache near-match).
         self.phash_hamming_threshold: int = int(

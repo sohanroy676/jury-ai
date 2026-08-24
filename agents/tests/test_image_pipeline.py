@@ -175,9 +175,9 @@ def test_decorative_high_confidence_dropped():
 
 
 def test_low_confidence_described_and_flagged():
-    """Ambiguous image -> described AND flagged needs_human_review."""
+    """Ambiguous NON-decorative image -> described AND flagged."""
     cache = FakeCache()
-    classify = make_classify({"a": ("photo", 0.45)})
+    classify = make_classify({"a": ("flowchart", 0.45)})
     describe = make_describe(["Possibly a whiteboard sketch."])
 
     result = process_submission_images(
@@ -193,6 +193,31 @@ def test_low_confidence_described_and_flagged():
     assert entry["needs_human_review"] is True
     assert entry["description"] == "Possibly a whiteboard sketch."
     assert len(cache.put_calls) == 1  # still cached for reuse
+
+
+def test_low_confidence_decorative_skipped_entirely():
+    """Decorative-labeled images are never described, even at low
+    confidence (banners/headers must not waste vision quota).
+
+    Genuine diagrams that CLIP misreads as decorative are rescued
+    upstream in classify_image (relabelled to the diagram label), so
+    anything still arriving here as photo/logo/decorative IS decoration.
+    """
+    cache = FakeCache()
+    classify = make_classify({"a": ("photo", 0.45)})
+    describe = make_describe()
+
+    result = process_submission_images(
+        [_img(1)],
+        cache_get=cache.get,
+        cache_put=cache.put,
+        classify_fn=classify,
+        describe_fn=describe,
+    )
+
+    assert result == []
+    assert describe.calls == []  # no vision call, no matter the confidence
+    assert cache.put_calls == []  # nothing cached
 
 
 def test_threshold_boundary_is_inclusive():
