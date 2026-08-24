@@ -4,9 +4,11 @@
 
 ## Now
 
-- v0.6.0 — Weighted scoring + ranking: configurable rubric, composite score, ranked leaderboard, shortlist cutoff.
+- v0.7.0 — Feedback agent + export: written per-team rationale, CSV export, per-team PDF export.
 
 ## Done
+
+- v0.6.0 — Weighted scoring + ranking on `feature/v0.6.0-weighted-ranking`: `rubric_config` table (migration 0006, hackathon-scoped, seeded equal weights); pure ranking engine in `agents/ranking/engine.py` (composite = Σ score×weight computed on the fly, deterministic tie-break composite→innovation→id with tie flags, top-N / min-score shortlists, unscored/partial excluded but counted); `GET /api/rankings` + `GET|PUT /api/rubrics/{hackathon_id}` with fraction-or-percent normalization and fallback-to-equal-weights transparency. Tests: backend 58 / agents 195 / frontend 3, ruff clean. Not yet merged/tagged; live verification pending. (2026-08-24)
 
 - v0.5.0 — Multi-agent split: four independent specialist agents (problem fit, technical depth, feasibility, innovation) score each submission concurrently (`asyncio.gather`, one shared AsyncGroq client, fail-closed aggregation, canonical result ordering); technical depth inferred from document content only (no GitHub dependency); scores schema unchanged (criterion doubles as agent identity beside agent_version v0.5.0). LIVE-verified end-to-end (real Supabase+Groq: score 200 in ~4.8s, four rows at agent_version v0.5.0, sensible cross-agent disagreement — feasibility 9 vs innovation 3 vs technical_depth 4 on the same proposal). Merged fast-forward to `main` and tagged **v0.5.0**. Tests: backend 38 / agents 166 / frontend 3, ruff clean. (2026-08-24)
 - v0.4.0 — Checkpoint passed: core loop (upload → parse → score) demoable end to end. Added read API (GET /api/submissions list + detail composing submission/parsed/scores), mocked-loop integration test, curl demo docs; LIVE-verified end-to-end (real Supabase + Groq, agent_version v0.4.0 persisted per score row). Also: project version centralized in root version.py (FastAPI metadata, scorer provenance, package.json, README all derive; drift-guard tests), CHANGELOG rebuilt as newest-first per-version sections via rewritten regenerate_changelog.py (+ local tags v0.1.0/v0.2.0). Tests: backend 38 / agents 106 / frontend 3, ruff clean. (2026-08-24)
@@ -18,7 +20,6 @@
 
 ## Next
 
-- v0.6.0 — Weighted scoring + ranking: configurable rubric, composite score, ranked leaderboard, shortlist cutoff.
 - v0.7.0 — Feedback agent + export: written per-team rationale, CSV export, per-team PDF export.
 - v1.0.0 — Milestone: usable, demo-ready MVP, fully free-tier.
 
