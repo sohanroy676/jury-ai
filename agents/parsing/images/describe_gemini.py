@@ -15,7 +15,9 @@ Retry policy mirrors the Groq describer: only HTTP 429 and transport
 doubling, max 3 retries). Persistent rate limiting raises
 ``VisionRateLimitError`` so the pipeline's circuit breaker behaves
 identically for both providers. All other errors propagate
-immediately.
+immediately — but Google's JSON error body is logged first, because
+it carries the actionable reason (e.g. a retired model returning 404
+"no longer available to new users").
 
 Gemini does not emit qwen-style reasoning blocks, but they are
 stripped defensively anyway so stored text stays clean even if
@@ -25,6 +27,7 @@ provider behavior changes.
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import time
 
@@ -41,8 +44,13 @@ from agents.parsing.images.describe import (
     _strip_think_blocks,
 )
 
+logger = logging.getLogger(__name__)
+
 DESCRIBER_VERSION = "v0.3.6-gemini"
-DEFAULT_GEMINI_VISION_MODEL = "gemini-2.5-flash"
+# Stable, free-tier model verified working via live probe (2026-08-24).
+# gemini-2.5-flash was dropped here after Google began returning 404
+# "no longer available to new users" for it on fresh API keys.
+DEFAULT_GEMINI_VISION_MODEL = "gemini-3.6-flash"
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 # Mirrors the Groq retry policy exactly: quota exhaustion plus
 # network-level failures. Every other HTTP status propagates at once.
@@ -55,6 +63,22 @@ def _get_http_client() -> httpx.Client:
     Separated into its own function so tests can mock it.
     """
     return httpx.Client(timeout=60.0)
+
+
+def _error_message(response: httpx.Response) -> str:
+    """Extract Google's human-readable error reason from a response.
+
+    Falls back to the raw body snippet when the JSON shape differs.
+    Never raises — diagnostics must not mask the original failure.
+    """
+    try:
+        message = response.json().get("error", {}).get("message", "")
+        return str(message)[:300]
+    except Exception:  # noqa: BLE001 - diagnostics must never mask the real error
+        try:
+            return response.text[:300]
+        except Exception:  # noqa: BLE001 - same reason
+            return "<unreadable response body>"
 
 
 def _rate_limit_error(response: httpx.Response) -> VisionRateLimitError:
@@ -91,7 +115,7 @@ def describe_image_gemini(
         api_key: Optional API key. If not provided, reads from the
             ``GEMINI_API_KEY`` environment variable.
         model: Optional vision model override. If not provided, reads
-            from ``GEMINI_VISION_MODEL`` (default ``gemini-2.5-flash``).
+            from ``GEMINI_VISION_MODEL`` (default ``gemini-3.6-flash``).
         max_retries: Number of retries for rate-limit/connection errors.
 
     Returns:
@@ -140,7 +164,18 @@ def describe_image_gemini(
                 )
                 if response.status_code in _RETRYABLE_STATUS_CODES:
                     raise _rate_limit_error(response)
-                response.raise_for_status()
+                if response.status_code >= 400:
+                    # Google's actionable reason (e.g. retired model
+                    # returning 404) lives in the JSON body; log it
+                    # before raising so failures are diagnosable from
+                    # server logs alone.
+                    logger.warning(
+                        "Gemini API error %s for model %s: %s",
+                        response.status_code,
+                        model,
+                        _error_message(response),
+                    )
+                    response.raise_for_status()
                 description = _extract_text(response)
                 if not description:
                     raise ValueError("Vision model returned an empty description")

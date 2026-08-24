@@ -144,7 +144,7 @@ def test_sends_inline_data_with_detected_mime_and_model_url(monkeypatch):
 
     kwargs = client.post.call_args.kwargs
     url = client.post.call_args.args[0]
-    assert url.endswith("/models/gemini-2.5-flash:generateContent")
+    assert url.endswith("/models/gemini-3.6-flash:generateContent")
     assert kwargs["headers"]["x-goog-api-key"] == "test-key"
     payload = kwargs["json"]
     inline = payload["contents"][0]["parts"][1]["inlineData"]
@@ -235,6 +235,49 @@ def test_non_429_http_error_propagates_without_retry(monkeypatch):
         describe_image_gemini(PNG_BYTES, api_key="test-key")
 
     assert client.post.call_count == 1
+
+
+def test_http_error_body_logged_before_raising(monkeypatch, caplog):
+    """Regression (v0.3.6 404): a retired default model returned 404
+    whose ONLY actionable hint sat in the JSON body, which used to be
+    discarded — the failure looked like an unexplained error. The body
+    reason must be logged before the exception propagates, and the
+    error must stay non-retryable."""
+    import logging
+
+    resp = _api_response(404)
+    resp.json.return_value = {
+        "error": {
+            "code": 404,
+            "message": (
+                "This model models/gemini-2.5-flash is no longer "
+                "available to new users."
+            ),
+            "status": "NOT_FOUND",
+        }
+    }
+    client = _client(response=resp)
+    monkeypatch.setattr(gemini_module, "_get_http_client", lambda: client)
+
+    with (
+        caplog.at_level(
+            logging.WARNING, logger="agents.parsing.images.describe_gemini"
+        ),
+        pytest.raises(httpx.HTTPStatusError),
+    ):
+        describe_image_gemini(PNG_BYTES, api_key="test-key")
+
+    assert "no longer available to new users" in caplog.text
+    assert "404" in caplog.text
+    assert client.post.call_count == 1  # still non-retryable
+
+
+def test_error_message_helper_never_raises(monkeypatch):
+    """_error_message falls back safely on non-JSON bodies."""
+    resp = Mock()
+    resp.json.side_effect = ValueError("not json")
+    resp.text = "<html>oops</html>"
+    assert "oops" in gemini_module._error_message(resp)
 
 
 def test_transport_error_is_retried(monkeypatch):

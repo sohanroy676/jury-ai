@@ -33,8 +33,10 @@ class Settings:
         # Scoring/text stages always use Groq regardless of this value.
         self.vision_provider: str = os.getenv("VISION_PROVIDER", "groq")
         self.gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+        # Stable free-tier model; gemini-2.5-flash 404s on new keys
+        # ("no longer available to new users") — do not go back.
         self.gemini_vision_model: str = os.getenv(
-            "GEMINI_VISION_MODEL", "gemini-2.5-flash"
+            "GEMINI_VISION_MODEL", "gemini-3.6-flash"
         )
         # Local CLIP zero-shot classifier (open_clip).
         self.clip_model: str = os.getenv("CLIP_MODEL", "ViT-B-32")

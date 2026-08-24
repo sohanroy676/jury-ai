@@ -61,7 +61,7 @@ Apply each migration file from `infra/migrations/` **in filename order**:
       VISION_PROVIDER=gemini
       GEMINI_API_KEY=your-key-here
       ```
-      Optionally override the model via `GEMINI_VISION_MODEL` (default `gemini-2.5-flash`).
+      Optionally override the model via `GEMINI_VISION_MODEL` (default `gemini-3.6-flash`; note that `gemini-2.5-flash` returns 404 on newly created API keys).
    3. Restart the backend.
 
    Scoring and all text stages always use Groq regardless of this setting; leaving `VISION_PROVIDER=groq` (the default) keeps behavior identical to v0.3.5.
