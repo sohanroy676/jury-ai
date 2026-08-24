@@ -2,7 +2,7 @@
 
 **Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events.
 
-> **Status:** v0.4.0 — core loop checkpoint: upload → parse → score, demoable end-to-end. See [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** v0.5.0 — multi-agent split: four specialist scoring agents run in parallel per submission. Core loop (upload → parse → score) demoable end-to-end. See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ## Features
 
@@ -145,10 +145,11 @@ npm run format      # format
 ## Roadmap
 
 - **v0.1.0** ✅ Project skeleton — upload portal, Supabase DB + storage wired.
-- **v0.2.0** Parsing agent — extract text from PDF (PyMuPDF) and PPTX (python-pptx).
-- **v0.3.0** Single scoring agent — Groq-powered, structured JSON output.
-- **v0.4.0** Checkpoint — core loop (upload → parse → score) demoable end to end.
-- **v0.5.0+** Multi-agent split, weighted scoring + ranking, feedback + export, and the v1.0.0 MVP.
+- **v0.2.0** ✅ Parsing agent — extract text from PDF (PyMuPDF) and PPTX (python-pptx).
+- **v0.3.0** ✅ Single scoring agent — Groq-powered, structured JSON output.
+- **v0.4.0** ✅ Checkpoint — core loop (upload → parse → score) demoable end to end.
+- **v0.5.0** ✅ Multi-agent split — four specialist agents (problem fit, technical depth, feasibility, innovation) score in parallel; technical depth inferred from document content only.
+- **v0.6.0+** Weighted scoring + ranking, feedback + export, and the v1.0.0 MVP.
 
 See [ROADMAP.md](ROADMAP.md) and [docs/hackathon_evaluator_roadmap.md](docs/hackathon_evaluator_roadmap.md) for the full plan.
 

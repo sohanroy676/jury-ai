@@ -12,4 +12,4 @@ read Python). Consumers:
 Drift guard: ``backend/tests/test_version.py``.
 """
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
