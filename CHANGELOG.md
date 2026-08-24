@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [v0.6.0] - 2026-08-24
+
+### Features
+
+* **ranking:** Add weighted ranking engine and rubric config ([dfe7007](https://github.com/sohanroy676/jury-ai/commit/dfe7007ae3569b8b87a42f2a5c67e8d50459a224))
+
 ## [v0.5.0] - 2026-08-24
 
 ### Features
