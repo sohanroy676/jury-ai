@@ -3,7 +3,9 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-**Clean slate for v0.4.0.** All v0.3.6 work is merged to `main`, tagged (**v0.3.5** @ `937a78f`, **v0.3.6** @ merged HEAD) and pushed to origin. Shipped this cycle: optional Gemini vision provider (`VISION_PROVIDER=gemini`, REST over pinned httpx, `gemini-3.6-flash` default), provider-neutral rate-limit breaker, decorative-image drop policy with diagram-floor rescue (`IMAGE_DIAGRAM_FLOOR`), QuickGELU correction. 133 tests pass; ruff clean; CHANGELOG regenerated via git-cliff.
+**v0.4.0 checkpoint COMPLETE (on stacked branches, awaiting merge/tag approval).** Core loop is demoable end to end and LIVE-verified against real Supabase+Groq (upload 201 -> parse -> score 200 with agent_version v0.4.0 per score row -> GET detail/list readback). Shipped on the stack: read API (list + composed detail), mocked-loop integration test, version.py single source (0.4.0) with drift-guard tests, CHANGELOG rebuilt as newest-first per-version sections (+local tags v0.1.0/v0.2.0), README curl demo. Tests: backend 38 / agents 106 / frontend 3; ruff clean.
+
+Branch stack (all committed, none merged): fix/version-single-source -> chore/changelog-versioned-sections -> feature/v0.4.0-core-loop-checkpoint. Awaiting user approval to ff-merge to main, tag v0.4.0, regenerate CHANGELOG under the new section format, then push (incl. new tags).
 
 ## Recent decisions
 - **v0.3.6 classification routing policy:** decorative-labeled images are NEVER vision-described (any confidence); genuine diagrams misread as decoration are rescued inside `classify_image` — if the best diagram-label probability ≥ `IMAGE_DIAGRAM_FLOOR` (env, default 0.30, calibrated on live scango probes: banners ≤0.27 for all diagram labels, misread process flow 0.32) the returned label becomes that diagram label. Rescue lives in classify.py (it owns the probs) so the pipeline keeps its 2-tuple ClassifyFn contract.
@@ -35,4 +37,4 @@
 - User accidentally deleted some table entries earlier (orphaned submission dd5f3f5a...); harmless after the PGRST116 fix.
 
 ## Next step
-- Start the **v0.4.0 checkpoint** in a fresh session: make upload → parse → score demoable end to end (single Groq scoring agent already exists; wire/verify the full loop against real files, run the roadmap's v0.4.0 test checklist, then tag). Per session-efficiency rules, begin from the memory bank.
+- After merge/tag/push approval: cut **v0.5.0 — multi-agent split** in a fresh session: split the single scoring prompt into four specialist agent modules (problem fit, technical depth, feasibility, innovation), run in parallel via asyncio.gather within Groq free-tier limits; technical depth inferred from document content only. Start from the memory bank per session-efficiency rules.

@@ -9,6 +9,10 @@ Format follows Keep a Changelog. Generated from Conventional Commits — regener
 
 * **version:** Centralize project version into single source ([7a7e3b5](https://github.com/sohanroy676/jury-ai/commit/7a7e3b593bcb504bfa6790e9e7684a27cac8e7e5))
 
+### Features
+
+* **api:** Add submission list and detail read endpoints ([ed72af1](https://github.com/sohanroy676/jury-ai/commit/ed72af1f0fa7045b2c5a9025497b3b6e28aa4556))
+
 ## [v0.3.6] - 2026-08-24
 
 ### Bug Fixes

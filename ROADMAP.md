@@ -4,10 +4,11 @@
 
 ## Now
 
-- v0.4.0 — Checkpoint: core loop (upload → parse → score) demoable end to end before adding multi-agent complexity. Start in a fresh session.
+- v0.5.0 — Multi-agent split (four specialist agents in parallel).
 
 ## Done
 
+- v0.4.0 — Checkpoint passed: core loop (upload → parse → score) demoable end to end. Added read API (GET /api/submissions list + detail composing submission/parsed/scores), mocked-loop integration test, curl demo docs; LIVE-verified end-to-end (real Supabase + Groq, agent_version v0.4.0 persisted per score row). Also: project version centralized in root version.py (FastAPI metadata, scorer provenance, package.json, README all derive; drift-guard tests), CHANGELOG rebuilt as newest-first per-version sections via rewritten regenerate_changelog.py (+ local tags v0.1.0/v0.2.0). Tests: backend 38 / agents 106 / frontend 3, ruff clean. (2026-08-24)
 - v0.3.6 — Optional Gemini vision provider for image descriptions + model-404 fix + classification-routing fix: VISION_PROVIDER switch, gemini-3.6-flash default (REST over pinned httpx), decorative images never described, diagram-floor rescue relabels misread diagrams. Merged to `main` and tagged **v0.3.6**. (2026-08-24)
 - v0.3.5 — Visual content understanding (diagrams, flowcharts, architecture images): merged to main; verified live (scango.pdf end-to-end, image_cache populated) and tagged **v0.3.5**. (2026-08-23)
 - v0.3.0 — Single scoring agent: Groq-powered, hardcoded rubric, structured JSON score output. (2026-08-22)
@@ -16,7 +17,6 @@
 
 ## Next
 
-- v0.4.0 — Checkpoint: core loop (upload → parse → score) demoable end to end before adding multi-agent complexity.
 - v0.5.0 — Multi-agent split: four specialist agents (problem fit, technical depth, feasibility, innovation) running in parallel, technical depth inferred from document content only (no GitHub dependency).
 - v0.6.0 — Weighted scoring + ranking: configurable rubric, composite score, ranked leaderboard, shortlist cutoff.
 - v0.7.0 — Feedback agent + export: written per-team rationale, CSV export, per-team PDF export.
