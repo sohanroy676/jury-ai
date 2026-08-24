@@ -2,7 +2,7 @@
 
 **Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events.
 
-> **Status:** v0.5.0 — multi-agent split: four specialist scoring agents run in parallel per submission. Core loop (upload → parse → score) demoable end-to-end. See [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** v0.6.0 — weighted scoring + ranking: configurable rubric, on-the-fly composite scores, ranked leaderboard with shortlist cutoffs. Core loop demoable end-to-end. See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ## Features
 
@@ -114,6 +114,12 @@ curl -s -X POST http://localhost:8000/api/submissions/<submission_id>/score
 
 # 3. Read back the full record: submission + parsed text + scores
 curl -s http://localhost:8000/api/submissions/<submission_id>
+
+# 4. Configure rubric weights (fractions summing to 1.0, or percentages summing to 100)
+curl -s -X PUT http://localhost:8000/api/rubrics/default   -H "Content-Type: application/json"   -d '{"weights": {"problem_fit": 0.30, "technical_depth": 0.30, "feasibility": 0.20, "innovation": 0.20}}'
+
+# 5. Get the ranked leaderboard (shortlist top 5, or use &min_score=7.5 instead)
+curl -s "http://localhost:8000/api/rankings?hackathon_id=default&top_n=5"
 ```
 
 `GET /api/submissions` lists every upload, newest first. Interactive docs for all endpoints live at <http://localhost:8000/docs>.
@@ -149,7 +155,8 @@ npm run format      # format
 - **v0.3.0** ✅ Single scoring agent — Groq-powered, structured JSON output.
 - **v0.4.0** ✅ Checkpoint — core loop (upload → parse → score) demoable end to end.
 - **v0.5.0** ✅ Multi-agent split — four specialist agents (problem fit, technical depth, feasibility, innovation) score in parallel; technical depth inferred from document content only.
-- **v0.6.0+** Weighted scoring + ranking, feedback + export, and the v1.0.0 MVP.
+- **v0.6.0** ✅ Weighted scoring + ranking — configurable rubric (`PUT /api/rubrics/{hackathon_id}`), composite leaderboard (`GET /api/rankings`), top-N / min-score shortlist cutoffs, deterministic tie-breaking.
+- **v0.7.0+** Feedback agent + export, and the v1.0.0 MVP.
 
 See [ROADMAP.md](ROADMAP.md) and [docs/hackathon_evaluator_roadmap.md](docs/hackathon_evaluator_roadmap.md) for the full plan.
 
