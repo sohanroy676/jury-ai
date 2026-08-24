@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from groq import GroqError
 
-from agents.scoring.scorer import CriterionScore, ScoringResult
+from agents.scoring.scorer import AGENT_VERSION, CriterionScore, ScoringResult
 from backend.main import app
 from backend.services import supabase
 
@@ -82,7 +82,8 @@ def test_score_endpoint_success(_mock_scoring):
     assert resp.status_code == 200
     body = resp.json()
     assert body["submission_id"] == "test-submission-id"
-    assert body["agent_version"] == "v0.3.0"
+    # Provenance follows the release (version.APP_VERSION), not a frozen literal.
+    assert body["agent_version"] == AGENT_VERSION
     assert len(body["scores"]) == 4
     for s in body["scores"]:
         assert 1 <= s["score"] <= 10

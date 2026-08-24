@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routes import scoring, submissions
+from version import APP_VERSION
 
 # Allowed frontend origins (comma-separated in FRONTEND_URL env var).
 # Defaults to the local dev frontend.
@@ -18,7 +19,7 @@ _frontend_origins = [
 app = FastAPI(
     title="JuryAI API",
     description="Backend for the JuryAI hackathon evaluator.",
-    version="0.1.0",
+    version=APP_VERSION,
 )
 
 app.add_middleware(

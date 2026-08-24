@@ -19,8 +19,12 @@ from typing import Any
 from groq import APIConnectionError, Groq, RateLimitError
 
 from agents.parsing.extractor import normalize_unicode_dashes
+from version import APP_VERSION
 
-AGENT_VERSION = "v0.3.0"
+# Provenance persisted with every score row: identifies the release
+# whose scoring logic produced it. Derived from the project-wide
+# version - bump version.py, never this string directly.
+AGENT_VERSION = f"v{APP_VERSION}"
 # llama-3.3-70b-versatile was deprecated/removed from Groq's free tier;
 # openai/gpt-oss-120b is the roadmap's listed alternative and is available.
 DEFAULT_MODEL = "openai/gpt-oss-120b"

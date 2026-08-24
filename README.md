@@ -2,7 +2,7 @@
 
 **Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events.
 
-> **Status:** v0.1.0 — project skeleton (upload portal + Supabase wiring). See [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** v0.4.0 — core loop checkpoint: upload → parse → score, demoable end-to-end. See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ## Features
 
