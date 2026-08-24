@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [Unreleased]
+
+### Features
+
+* **scoring:** Split scoring into four parallel specialist agents ([e216eb4](https://github.com/sohanroy676/jury-ai/commit/e216eb471666972c5d2ff91b92bb60525f7b9a75))
+
 ## [v0.4.0] - 2026-08-24
 
 ### Bug Fixes
