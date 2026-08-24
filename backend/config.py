@@ -27,6 +27,15 @@ class Settings:
         # Groq vision model used to describe diagram-like images.
         # qwen/qwen3.6-27b is verified vision-capable on the free tier.
         self.groq_vision_model: str = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
+        # --- Image understanding (v0.3.6) -----------------------------
+        # Vision describer for diagram-like images: "groq" (qwen via
+        # Groq, default) or "gemini" (Google AI Studio free tier).
+        # Scoring/text stages always use Groq regardless of this value.
+        self.vision_provider: str = os.getenv("VISION_PROVIDER", "groq")
+        self.gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+        self.gemini_vision_model: str = os.getenv(
+            "GEMINI_VISION_MODEL", "gemini-2.5-flash"
+        )
         # Local CLIP zero-shot classifier (open_clip).
         self.clip_model: str = os.getenv("CLIP_MODEL", "ViT-B-32")
         self.clip_pretrained: str = os.getenv("CLIP_PRETRAINED", "openai")
@@ -56,6 +65,11 @@ class Settings:
     def is_groq_configured(self) -> bool:
         """True when the Groq API key is present."""
         return bool(self.groq_api_key)
+
+    @property
+    def is_gemini_configured(self) -> bool:
+        """True when the Gemini API key is present (vision option)."""
+        return bool(self.gemini_api_key)
 
 
 settings = Settings()

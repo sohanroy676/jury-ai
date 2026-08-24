@@ -16,3 +16,7 @@ torch==2.13.0
 open_clip_torch==3.3.0
 imagehash==4.3.2
 pillow==12.3.0
+# v0.3.6: the optional Gemini vision describer intentionally adds NO
+# dependency — it calls Google's REST endpoint via the already-pinned
+# httpx, because the official google-genai SDK requires httpx>=0.28
+# which conflicts with supabase==2.9.0's httpx<0.28 constraint.

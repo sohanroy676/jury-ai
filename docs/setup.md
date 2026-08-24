@@ -54,6 +54,18 @@ Apply each migration file from `infra/migrations/` **in filename order**:
 
    The image-understanding variables (`GROQ_VISION_MODEL`, `CLIP_MODEL`, `CLIP_PRETRAINED`, `IMAGE_CLASSIFY_THRESHOLD`, `PHASH_HAMMING_THRESHOLD`, `MIN_IMAGE_DIMENSION`) have sensible defaults — see `.env.example` if you want to override them.
 
+3. **(Optional) Gemini for image descriptions** *(v0.3.6)*: by default images are described with Groq's qwen model. To use Google's Gemini instead:
+   1. Create a free API key at <https://aistudio.google.com/apikey> (no credit card needed).
+   2. In `.env`, set:
+      ```
+      VISION_PROVIDER=gemini
+      GEMINI_API_KEY=your-key-here
+      ```
+      Optionally override the model via `GEMINI_VISION_MODEL` (default `gemini-2.5-flash`).
+   3. Restart the backend.
+
+   Scoring and all text stages always use Groq regardless of this setting; leaving `VISION_PROVIDER=groq` (the default) keeps behavior identical to v0.3.5.
+
 > **Security:** `.env` is git-ignored. Never commit it. The `service_role` key in particular must never appear in frontend code or be committed.
 
 ## 6. Run the backend

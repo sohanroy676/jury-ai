@@ -20,6 +20,7 @@ import os
 import re
 import time
 
+import httpx
 from groq import APIConnectionError, Groq, RateLimitError
 
 from agents.parsing.extractor import normalize_unicode_dashes
@@ -52,6 +53,31 @@ SYSTEM_PROMPT = (
     "labels. Do not speculate about content you cannot see. Respond with "
     f"at most {MAX_DESCRIPTION_WORDS} words of plain text."
 )
+
+
+class VisionRateLimitError(RateLimitError):
+    """Provider-neutral signal that the vision quota is exhausted.
+
+    Subclasses ``groq.RateLimitError`` so the pipeline's existing
+    circuit breaker (``except RateLimitError``) trips identically no
+    matter which vision provider was selected. Non-Groq describers
+    (Gemini) raise this after their own retry budget is exhausted.
+
+    groq's ``APIStatusError`` requires a real ``httpx.Response``
+    (it reads ``response.request``), so a synthetic 429 response is
+    constructed here rather than passing ``None``.
+    """
+
+    def __init__(self, message: str = "Vision provider rate limit exhausted"):
+        response = httpx.Response(
+            429,
+            headers={"content-type": "application/json"},
+            json={"error": {"message": message}},
+            request=httpx.Request(
+                "POST", "https://synthetic.vision-rate-limit.invalid/"
+            ),
+        )
+        super().__init__(message, response=response, body=None)
 
 
 def _get_groq_client(api_key: str) -> Groq:

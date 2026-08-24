@@ -25,6 +25,7 @@ Failure semantics (graceful degradation):
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -33,6 +34,7 @@ from groq import RateLimitError
 from agents.parsing.images.classify import DECORATIVE_LABELS, classify_image
 from agents.parsing.images.dedupe import DEFAULT_PHASH_THRESHOLD, dedupe_images
 from agents.parsing.images.describe import describe_image
+from agents.parsing.images.describe_gemini import describe_image_gemini
 from agents.parsing.images.extract import ExtractedImage
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,29 @@ CacheGet = Callable[[str], dict | None]
 CachePut = Callable[[str, str, float, str | None], None]
 ClassifyFn = Callable[[bytes], tuple[str, float]]
 DescribeFn = Callable[[bytes], str]
+
+# Vision describer selection (v0.3.6): VISION_PROVIDER=groq|gemini in
+# .env picks the default describer; the default stays groq and the
+# scoring/text stages are unaffected either way.
+DEFAULT_VISION_PROVIDER = "groq"
+VALID_VISION_PROVIDERS = ("groq", "gemini")
+
+
+def _resolve_default_describer() -> DescribeFn:
+    """Return the describer selected by ``VISION_PROVIDER``.
+
+    Used only when no explicit ``describe_fn`` is injected. Unknown
+    values fail fast with the accepted options listed.
+    """
+    provider = os.getenv("VISION_PROVIDER", DEFAULT_VISION_PROVIDER).strip().lower()
+    if provider == "groq":
+        return describe_image
+    if provider == "gemini":
+        return describe_image_gemini
+    raise ValueError(
+        f"Unsupported VISION_PROVIDER {provider!r}. Expected one of: "
+        + ", ".join(VALID_VISION_PROVIDERS)
+    )
 
 
 def process_submission_images(
@@ -64,7 +89,9 @@ def process_submission_images(
             writer. Only successful descriptions are cached. Errors are
             logged and ignored.
         classify_fn: Optional classifier override (tests).
-        describe_fn: Optional describer override (tests).
+        describe_fn: Optional describer override (tests). When omitted,
+            the describer is chosen by ``VISION_PROVIDER`` in `.env`
+            (``groq`` default, or ``gemini``). Overrides always win.
         confidence_threshold: At/above this CLIP confidence the top
             label is trusted for routing.
         phash_threshold: Max hamming distance for within-submission
@@ -75,7 +102,7 @@ def process_submission_images(
         in document order. May be empty.
     """
     classify = classify_fn or classify_image
-    describe = describe_fn or describe_image
+    describe = describe_fn or _resolve_default_describer()
 
     descriptions: list[dict[str, Any]] = []
     rate_limited = False
