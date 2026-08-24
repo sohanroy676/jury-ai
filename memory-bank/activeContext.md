@@ -3,7 +3,7 @@
 <!-- Update this at the end of every session. This is the first thing to read when resuming. -->
 
 ## Current focus
-**v0.5.0 multi-agent split IMPLEMENTED on `feature/v0.5.0-multi-agent-split` (commits e216eb4 + c57c61c; not merged/tagged/pushed).** Single scoring prompt replaced by four independent specialist agents (ProblemFitAgent, TechnicalDepthAgent, FeasibilityAgent, InnovationAgent) in `agents/scoring/`, run concurrently via asyncio.gather against one shared AsyncGroq client. Fail-closed aggregation: any agent failing after retries aborts the whole run — no partial score rows ever. Scores schema unchanged: criterion doubles as agent identity beside agent_version **v0.5.0** per row. TechnicalDepthAgent judges document content ONLY (repo links never evaluated — roadmap priority). Route awaits the now-async score_submission; external response shape unchanged. Tests: backend 38 / agents 166 / frontend 3; ruff clean.
+**v0.5.0 multi-agent split RELEASED.** Fast-forward-merged to `main` (7f0c66b → 2874b72), tagged **v0.5.0** @ 2874b72, LIVE-verified against real Supabase+Groq before merge: upload 201 → parse → score 200 in ~4.8s with four rows at agent_version **v0.5.0**, and the roadmap's disagreement DoD observed on a live proposal (feasibility 9 / problem_fit 7 vs technical_depth 4 / innovation 3 — off-the-shelf IoT stack, common idea). CHANGELOG regenerated into a dated [v0.5.0] section; pushed to origin with the tag. Four specialist agents in `agents/scoring/` run concurrently via asyncio.gather over one shared AsyncGroq client, fail-closed; route awaits async score_submission; response shape unchanged. Tests: backend 38 / agents 166 / frontend 3; ruff clean.
 
 RELEASED previously: v0.4.0 tagged at b25a7d1 and pushed to origin with all tags (incl. backfilled v0.1.0/v0.2.0).
 
@@ -37,4 +37,4 @@ RELEASED previously: v0.4.0 tagged at b25a7d1 and pushed to origin with all tags
 - User accidentally deleted some table entries earlier (orphaned submission dd5f3f5a...); harmless after the PGRST116 fix.
 
 ## Next step
-- LIVE-verify v0.5.0 with the user (real Supabase + Groq): upload a PDF/PPTX, POST /score, confirm 4 rows with agent_version **v0.5.0**, four near-simultaneous Groq calls without unexpected 429s, and sensible cross-agent disagreement (technical-but-off-theme → high technical_depth, low problem_fit). Then merge/tag **v0.5.0**, push, regenerate CHANGELOG, and start v0.6.0 (weighted scoring + ranking) in a fresh session from the memory bank per session-efficiency rules.
+- Start **v0.6.0 — weighted scoring + ranking** in a FRESH session (rubric config table, composite engine, ranking endpoint, shortlist cutoff, tie-breaking) from the memory bank per session-efficiency rules. Nothing is blocking: branch merged, tag pushed.
