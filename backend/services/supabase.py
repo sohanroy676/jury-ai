@@ -262,3 +262,74 @@ def insert_scores(
     result = client.table("scores").insert(rows).execute()
 
     return result.data
+
+
+def list_submissions(limit: int = 100) -> list[dict]:
+    """List submission rows, newest first (uploaded_at descending).
+
+    Args:
+        limit: Maximum number of rows to return.
+
+    Returns:
+        A list of submission row dicts; empty when none exist.
+    """
+    client = get_client()
+
+    result = (
+        client.table("submissions")
+        .select("*")
+        .order("uploaded_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+
+    return list(result.data or [])
+
+
+def get_submission(submission_id: str) -> dict | None:
+    """Fetch a single submission row by id.
+
+    Args:
+        submission_id: The UUID of the submission row.
+
+    Returns:
+        The submission row as a dict, or ``None`` if not found.
+    """
+    client = get_client()
+
+    # NOTE: limit(1) + explicit None, never .single() — PostgREST raises
+    # PGRST116 on zero rows with .single() (see get_parsed_submission).
+    result = (
+        client.table("submissions")
+        .select("*")
+        .eq("id", submission_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data[0]
+
+
+def get_scores(submission_id: str) -> list[dict]:
+    """Fetch all score rows for a submission, oldest first.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+
+    Returns:
+        A list of score row dicts; empty when the submission is unscored.
+    """
+    client = get_client()
+
+    result = (
+        client.table("scores")
+        .select("*")
+        .eq("submission_id", submission_id)
+        .order("scored_at")
+        .execute()
+    )
+
+    return list(result.data or [])

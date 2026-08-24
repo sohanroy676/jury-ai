@@ -100,6 +100,24 @@ npm run dev
 
 Open <http://localhost:3000> and upload a PDF or PPTX.
 
+## Demo the Core Loop (API only)
+
+With the backend running and `.env` configured (Supabase + `GROQ_API_KEY`):
+
+```bash
+# 1. Upload a PDF or PPTX (parsed automatically on upload)
+curl -s -X POST http://localhost:8000/api/submissions   -F "team_name=QuantumQuokka"   -F "file=@./proposal.pdf"
+# -> {"id": "<submission_id>", "team_name": "QuantumQuokka", ...}
+
+# 2. Trigger scoring (Groq-powered)
+curl -s -X POST http://localhost:8000/api/submissions/<submission_id>/score
+
+# 3. Read back the full record: submission + parsed text + scores
+curl -s http://localhost:8000/api/submissions/<submission_id>
+```
+
+`GET /api/submissions` lists every upload, newest first. Interactive docs for all endpoints live at <http://localhost:8000/docs>.
+
 ## Testing
 
 ```bash

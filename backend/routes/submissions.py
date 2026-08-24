@@ -115,3 +115,43 @@ async def create_submission(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return row
+
+
+@router.get("/submissions")
+async def get_submissions() -> list[dict]:
+    """List uploaded submissions, newest first.
+
+    Powers the evaluator dashboard feed and team status views.
+    """
+    try:
+        return supabase.list_submissions()
+    except supabase.SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/submissions/{submission_id}")
+async def read_submission(submission_id: str) -> dict:
+    """Return the full record for one submission.
+
+    Composes the submission row, its parsed text (when the parse stage
+    has run), and its score rows (when scored). All three stages are
+    orphan-tolerant: a valid submission may legitimately have no parsed
+    text yet or no scores yet.
+    """
+    # Reject malformed ids before touching Postgres — a non-UUID would
+    # surface as a PostgREST 400/APIError and an unhandled 500.
+    try:
+        uuid.UUID(submission_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Submission not found.") from exc
+
+    try:
+        submission = supabase.get_submission(submission_id)
+        if submission is None:
+            raise HTTPException(status_code=404, detail="Submission not found.")
+        parsed = supabase.get_parsed_submission(submission_id)
+        scores = supabase.get_scores(submission_id)
+    except supabase.SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {"submission": submission, "parsed": parsed, "scores": scores}
