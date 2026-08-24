@@ -1,44 +1,62 @@
-"""Tests for the scoring agent (Groq-powered single-agent scoring)."""
+"""Tests for the v0.5.0 specialist scoring agents (Groq-powered).
 
+Each criterion is scored by its own narrow ``SpecialistAgent`` subclass.
+This file covers per-agent behavior: prompts, response validation,
+retries, and error semantics. Orchestration-level behavior (parallel
+fan-out, aggregation ordering, fail-closed semantics) lives in
+test_scoring_parallel.py.
+"""
+
+from __future__ import annotations
+
+import asyncio
 import json
 from unittest.mock import Mock
 
 import pytest
-from groq import RateLimitError
+from groq import APIConnectionError, RateLimitError
 
-from agents.scoring.scorer import (
+from agents.scoring.base import (
     AGENT_VERSION,
     CRITERIA_NAMES,
+    RUBRIC,
     CriterionScore,
     ScoringResult,
-    score_submission,
+    SpecialistAgent,
 )
+from agents.scoring.feasibility import FeasibilityAgent
+from agents.scoring.innovation import InnovationAgent
+from agents.scoring.problem_fit import ProblemFitAgent
+from agents.scoring.technical_depth import TechnicalDepthAgent
+
+AGENT_CLASSES = [
+    ProblemFitAgent,
+    TechnicalDepthAgent,
+    FeasibilityAgent,
+    InnovationAgent,
+]
 
 # --- Helpers -----------------------------------------------------------------
 
 
-def _valid_json(scores: dict | None = None) -> str:
-    """Build a valid JSON response string for the mock Groq client."""
-    if scores is None:
-        scores = {
-            "problem_fit": {
-                "score": 8,
-                "justification": "Clear problem statement and solution.",
-            },
-            "technical_depth": {
-                "score": 7,
-                "justification": "Good tech stack and implementation details.",
-            },
-            "feasibility": {
-                "score": 6,
-                "justification": "Realistic for a 36-hour hackathon.",
-            },
-            "innovation": {
-                "score": 9,
-                "justification": "Novel approach to the problem.",
-            },
+def _agent_for(criterion: str) -> SpecialistAgent:
+    """Return the specialist instance for a criterion name."""
+    cls = next(c for c in AGENT_CLASSES if c.criterion == criterion)
+    return cls()
+
+
+def _valid_response(
+    criterion: str, score: int = 8, justification: str | None = None
+) -> str:
+    """A valid single-criterion JSON response."""
+    return json.dumps(
+        {
+            criterion: {
+                "score": score,
+                "justification": justification or f"Strong {criterion} evidence.",
+            }
         }
-    return json.dumps(scores)
+    )
 
 
 def _mock_response(content: str) -> Mock:
@@ -49,267 +67,332 @@ def _mock_response(content: str) -> Mock:
     return resp
 
 
-def _mock_client(content: str, side_effect=None) -> Mock:
-    """Create a mock Groq client.
+def _mock_client(content: str | None = None, side_effect=None):
+    """Create a mock AsyncGroq client with an awaitable completions.create.
 
-    If ``side_effect`` is provided, it is used as the side_effect for
-    ``chat.completions.create`` (useful for simulating errors).
-    Otherwise, the client always returns a response with ``content``.
+    ``side_effect`` is a list of raw-content strings or Exception
+    instances consumed per call; otherwise every call returns ``content``.
     """
     client = Mock()
-    if side_effect is not None:
-        client.chat.completions.create.side_effect = side_effect
-    else:
-        client.chat.completions.create.return_value = _mock_response(content)
+    effects = list(side_effect) if side_effect is not None else None
+
+    async def create(**kwargs):
+        if effects is not None:
+            effect = effects.pop(0)
+            if isinstance(effect, BaseException):
+                raise effect
+            return _mock_response(effect)
+        return _mock_response(content)
+
+    client.chat.completions.create.side_effect = create
     return client
 
 
 def _rate_limit_error() -> RateLimitError:
-    """Create a RateLimitError suitable for testing."""
     return RateLimitError("rate limited", response=Mock(), body=None)
 
 
+def _connection_error() -> APIConnectionError:
+    return APIConnectionError(request=Mock())
+
+
 @pytest.fixture(autouse=True)
-def _mock_sleep(monkeypatch):
-    """Mock time.sleep so tests don't actually wait."""
-    monkeypatch.setattr("agents.scoring.scorer.time.sleep", lambda x: None)
+def _no_sleep(monkeypatch):
+    """Make backoff waits instant — never actually wait in unit tests."""
+
+    async def _instant(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("agents.scoring.base._sleep", _instant)
 
 
-# --- Happy path --------------------------------------------------------------
+# --- Rubric single-source ----------------------------------------------------
 
 
-def test_score_submission_returns_valid_result(monkeypatch):
-    """A valid Groq response produces a ScoringResult with 4 CriterionScores."""
-    client = _mock_client(_valid_json())
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
+def test_rubric_matches_specialist_criteria():
+    """The rubric, criteria list, and the four modules stay in lockstep."""
+    assert [cls.criterion for cls in AGENT_CLASSES] == CRITERIA_NAMES
+    assert set(CRITERIA_NAMES) == {c["name"] for c in RUBRIC["criteria"]}
 
-    result = score_submission(
-        "test-id", "Some submission text", groq_api_key="test-key"
+
+def test_scoring_result_defaults_to_release_version():
+    result = ScoringResult(submission_id="id-1", scores=[])
+    assert result.agent_version == AGENT_VERSION
+
+
+# --- Happy path ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_agent_scores_own_criterion(cls):
+    """A valid Groq response yields this agent's CriterionScore."""
+    client = _mock_client(_valid_response(cls.criterion))
+    agent = cls()
+
+    import asyncio
+
+    score = asyncio.run(agent.score(client, "Some submission text"))
+
+    assert isinstance(score, CriterionScore)
+    assert score.criterion == cls.criterion
+    assert 1 <= score.score <= 10
+    assert score.justification
+    assert client.chat.completions.create.call_count == 1
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_system_prompt_names_only_own_criterion(cls):
+    """Narrow scope: each prompt references its criterion, never the others."""
+    prompt = cls().system_prompt()
+    assert cls.criterion in prompt
+    for other in CRITERIA_NAMES:
+        if other != cls.criterion:
+            assert other not in prompt, (
+                f"{cls.__name__}'s prompt leaks foreign criterion '{other}'"
+            )
+
+
+def test_technical_depth_prompt_is_document_only():
+    """The depth agent judges document content and never requires a repo."""
+    prompt = TechnicalDepthAgent().system_prompt()
+    assert "SOLELY from the document content" in prompt
+    assert "GitHub repositories are NOT evaluated" in prompt
+    assert "document alone must be sufficient" in prompt
+
+
+def test_user_message_wraps_submission_text():
+    message = ProblemFitAgent().user_message("proposal body")
+    assert "---BEGIN SUBMISSION TEXT---" in message
+    assert "proposal body" in message
+    assert "'problem_fit'" in message
+
+
+# --- Response validation (adversarial) ----------------------------------------
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_wrong_criterion_echo_is_retried_then_recovered(cls):
+    """A valid JSON keyed for ANOTHER agent counts as missing -> retry."""
+    other = next(c for c in CRITERIA_NAMES if c != cls.criterion)
+    client = _mock_client(
+        side_effect=[_valid_response(other), _valid_response(cls.criterion)]
     )
 
-    assert isinstance(result, ScoringResult)
-    assert result.submission_id == "test-id"
-    assert result.agent_version == AGENT_VERSION
-    assert len(result.scores) == 4
-    for score in result.scores:
-        assert isinstance(score, CriterionScore)
-        assert 1 <= score.score <= 10
-        assert score.justification  # non-empty
-    assert [s.criterion for s in result.scores] == CRITERIA_NAMES
+    score = asyncio.run(cls().score(client, "text"))
+
+    assert score.criterion == cls.criterion
+    assert client.chat.completions.create.call_count == 2
 
 
-def test_score_submission_uses_env_api_key(monkeypatch):
-    """When groq_api_key is not passed, reads from GROQ_API_KEY env var."""
-    monkeypatch.setenv("GROQ_API_KEY", "env-key")
-    client = _mock_client(_valid_json())
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_boolean_score_is_rejected_and_retried(cls):
+    """True is an int subclass — must not sneak through as score 1."""
+    bad = json.dumps({cls.criterion: {"score": True, "justification": "x"}})
+    client = _mock_client(side_effect=[bad, _valid_response(cls.criterion)])
 
-    result = score_submission("test-id", "Some text")
+    score = asyncio.run(cls().score(client, "text"))
 
-    assert len(result.scores) == 4
-    # Verify the client was created with the env var key.
-    client.chat.completions.create.assert_called_once()
-
-
-# --- Error: missing API key --------------------------------------------------
+    assert score.score >= 1
+    assert client.chat.completions.create.call_count == 2
 
 
-def test_score_submission_raises_without_api_key(monkeypatch):
-    """Without an API key (and no env var), raises ValueError."""
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+@pytest.mark.parametrize("bad_score", [0, 11])
+def test_out_of_range_score_exhausts_retries(cls, bad_score):
+    from agents.scoring.base import MAX_RETRIES
 
-    with pytest.raises(ValueError, match="Groq API key is not configured"):
-        score_submission("test-id", "Some text")
+    bad = json.dumps({cls.criterion: {"score": bad_score, "justification": "x"}})
+    client = _mock_client(side_effect=[bad] * (MAX_RETRIES + 1))
+
+    with pytest.raises(RuntimeError, match=cls.criterion):
+        asyncio.run(cls().score(client, "text"))
+
+    assert client.chat.completions.create.call_count == MAX_RETRIES + 1
 
 
-# --- Retry: rate limit -------------------------------------------------------
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_non_numeric_score_word_is_retried(cls):
+    bad = json.dumps({cls.criterion: {"score": "seven", "justification": "x"}})
+    client = _mock_client(side_effect=[bad, _valid_response(cls.criterion)])
+
+    score = asyncio.run(cls().score(client, "text"))
+
+    assert score.score == 8
+    assert client.chat.completions.create.call_count == 2
 
 
-def test_score_submission_retries_on_rate_limit(monkeypatch):
-    """RateLimitError on first call is retried and succeeds on second."""
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_non_dict_root_is_retried(cls):
     client = _mock_client(
-        _valid_json(),
+        side_effect=[json.dumps([1, 2]), _valid_response(cls.criterion)]
+    )
+
+    score = asyncio.run(cls().score(client, "text"))
+
+    assert score.criterion == cls.criterion
+    assert client.chat.completions.create.call_count == 2
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_non_json_text_is_retried(cls):
+    client = _mock_client(side_effect=["hello world", _valid_response(cls.criterion)])
+
+    score = asyncio.run(cls().score(client, "text"))
+
+    assert score.criterion == cls.criterion
+    assert client.chat.completions.create.call_count == 2
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+@pytest.mark.parametrize("empty", ["", "   "])
+def test_blank_justification_is_retried(cls, empty):
+    bad = json.dumps({cls.criterion: {"score": 5, "justification": empty}})
+    client = _mock_client(side_effect=[bad, _valid_response(cls.criterion)])
+
+    score = asyncio.run(cls().score(client, "text"))
+
+    assert score.justification
+    assert client.chat.completions.create.call_count == 2
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_missing_score_or_justification_key_is_retried(cls):
+    bad = json.dumps({cls.criterion: {"score": 5}})
+    client = _mock_client(side_effect=[bad, _valid_response(cls.criterion)])
+
+    asyncio.run(cls().score(client, "text"))
+    assert client.chat.completions.create.call_count == 2
+
+
+@pytest.mark.parametrize("cls", AGENT_CLASSES)
+def test_criterion_entry_not_a_dict_is_retried(cls):
+    bad = json.dumps({cls.criterion: "excellent"})
+    client = _mock_client(side_effect=[bad, _valid_response(cls.criterion)])
+
+    asyncio.run(cls().score(client, "text"))
+    assert client.chat.completions.create.call_count == 2
+
+
+def test_numeric_string_score_is_accepted_leniently():
+    """Documents v0.3.0 behavior carried forward: int('8') coerces fine."""
+    client = _mock_client(
+        json.dumps({"problem_fit": {"score": "8", "justification": "ok"}})
+    )
+
+    score = asyncio.run(ProblemFitAgent().score(client, "text"))
+
+    assert score.score == 8
+
+
+def test_extra_top_level_keys_are_ignored():
+    payload = json.dumps(
+        {
+            "problem_fit": {"score": 7, "justification": "fine"},
+            "unrequested_extra": {"anything": True},
+        }
+    )
+    client = _mock_client(payload)
+
+    score = asyncio.run(ProblemFitAgent().score(client, "text"))
+
+    assert score.score == 7
+
+
+def test_unicode_dashes_normalized_in_justification():
+    raw = json.dumps(
+        {
+            "problem_fit": {
+                "score": 8,
+                "justification": "cost\u2011per\u2011dollar \u2014 solid",
+            }
+        }
+    )
+    client = _mock_client(raw)
+
+    score = asyncio.run(ProblemFitAgent().score(client, "text"))
+
+    assert score.justification == "cost-per-dollar - solid"
+
+
+# --- Retry semantics ----------------------------------------------------------
+
+
+def test_malformed_recovery_sends_corrective_prompt():
+    criterion = "feasibility"
+    client = _mock_client(side_effect=["not json", _valid_response(criterion)])
+
+    asyncio.run(_agent_for(criterion).score(client, "submission text here"))
+
+    second_call = client.chat.completions.create.call_args_list[1]
+    user_content = second_call.kwargs["messages"][1]["content"]
+    assert "not valid JSON" in user_content
+    assert f"criterion '{criterion}'" in user_content
+    assert "submission text here" in user_content
+
+
+def test_rate_limit_retry_then_success():
+    client = _mock_client(
         side_effect=[
             _rate_limit_error(),
-            _mock_response(_valid_json()),
-        ],
+            _rate_limit_error(),
+            _valid_response("innovation"),
+        ]
     )
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
 
-    result = score_submission("test-id", "Some text", groq_api_key="test-key")
+    score = asyncio.run(InnovationAgent().score(client, "text"))
 
-    assert len(result.scores) == 4
-    assert client.chat.completions.create.call_count == 2
+    assert score.criterion == "innovation"
+    assert client.chat.completions.create.call_count == 3
 
 
-def test_score_submission_raises_on_persistent_rate_limit(monkeypatch):
-    """If all retries hit rate limit, RateLimitError is raised."""
-    client = _mock_client(
-        _valid_json(),
-        side_effect=_rate_limit_error(),
-    )
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
+def test_rate_limit_exhaustion_raises_rate_limit_error():
+    from agents.scoring.base import MAX_RETRIES
+
+    client = _mock_client(side_effect=[_rate_limit_error()] * (MAX_RETRIES + 1))
 
     with pytest.raises(RateLimitError):
-        score_submission("test-id", "Some text", groq_api_key="test-key")
+        asyncio.run(InnovationAgent().score(client, "text"))
+
+    assert client.chat.completions.create.call_count == MAX_RETRIES + 1
 
 
-# --- Retry: malformed JSON ---------------------------------------------------
-
-
-def test_score_submission_retries_on_malformed_json(monkeypatch):
-    """Malformed JSON on first call is retried and succeeds on second."""
+def test_connection_error_is_retried():
     client = _mock_client(
-        _valid_json(),
-        side_effect=[
-            _mock_response("not valid json {{{"),
-            _mock_response(_valid_json()),
-        ],
+        side_effect=[_connection_error(), _valid_response("technical_depth")]
     )
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
 
-    result = score_submission("test-id", "Some text", groq_api_key="test-key")
+    score = asyncio.run(TechnicalDepthAgent().score(client, "text"))
 
-    assert len(result.scores) == 4
+    assert score.criterion == "technical_depth"
     assert client.chat.completions.create.call_count == 2
 
 
-def test_score_submission_raises_on_persistent_malformed_json(monkeypatch):
-    """If all retries return malformed JSON, RuntimeError is raised."""
-    client = _mock_client("garbage")
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
+def test_non_retryable_error_propagates_immediately_unwrapped():
+    boom = RuntimeError("auth exploded")
+    client = _mock_client(side_effect=[boom])
 
-    with pytest.raises(RuntimeError, match="Failed to get valid JSON"):
-        score_submission("test-id", "Some text", groq_api_key="test-key")
+    with pytest.raises(RuntimeError, match="auth exploded"):
+        asyncio.run(ProblemFitAgent().score(client, "text"))
+
+    # No retry loop for non-retryable errors.
+    assert client.chat.completions.create.call_count == 1
 
 
-# --- Validation --------------------------------------------------------------
+# --- Facade compatibility -----------------------------------------------------
 
 
-def test_score_submission_rejects_score_out_of_range(monkeypatch):
-    """Scores outside 1-10 are rejected and retried."""
-    bad_json = json.dumps(
-        {
-            "problem_fit": {"score": 15, "justification": "Too high"},
-            "technical_depth": {"score": 7, "justification": "OK"},
-            "feasibility": {"score": 6, "justification": "OK"},
-            "innovation": {"score": 9, "justification": "OK"},
-        }
+def test_scorer_facade_still_exports_public_names():
+    """Backend routes/tests import these from scorer — paths must survive."""
+    from agents.scoring.scorer import (  # noqa: F401
+        AGENT_VERSION,
+        CRITERIA_NAMES,
+        RUBRIC,
+        CriterionScore,
+        ScoringResult,
+        build_scoring_text,
+        build_specialist_agents,
+        score_submission,
     )
-    client = _mock_client(
-        bad_json,
-        side_effect=[
-            _mock_response(bad_json),
-            _mock_response(_valid_json()),
-        ],
-    )
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
 
-    result = score_submission("test-id", "Some text", groq_api_key="test-key")
-
-    assert len(result.scores) == 4
-    assert client.chat.completions.create.call_count == 2
-
-
-def test_score_submission_rejects_empty_justification(monkeypatch):
-    """Empty justifications are rejected and retried."""
-    bad_json = json.dumps(
-        {
-            "problem_fit": {"score": 8, "justification": ""},
-            "technical_depth": {"score": 7, "justification": "OK"},
-            "feasibility": {"score": 6, "justification": "OK"},
-            "innovation": {"score": 9, "justification": "OK"},
-        }
-    )
-    client = _mock_client(
-        bad_json,
-        side_effect=[
-            _mock_response(bad_json),
-            _mock_response(_valid_json()),
-        ],
-    )
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
-
-    result = score_submission("test-id", "Some text", groq_api_key="test-key")
-
-    assert len(result.scores) == 4
-    assert client.chat.completions.create.call_count == 2
-
-
-def test_score_submission_rejects_missing_criterion(monkeypatch):
-    """A response missing a criterion is rejected and retried."""
-    bad_json = json.dumps(
-        {
-            "problem_fit": {"score": 8, "justification": "Good"},
-            "technical_depth": {"score": 7, "justification": "Good"},
-            "feasibility": {"score": 6, "justification": "Good"},
-            # innovation missing
-        }
-    )
-    client = _mock_client(
-        bad_json,
-        side_effect=[
-            _mock_response(bad_json),
-            _mock_response(_valid_json()),
-        ],
-    )
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
-
-    result = score_submission("test-id", "Some text", groq_api_key="test-key")
-
-    assert len(result.scores) == 4
-    assert client.chat.completions.create.call_count == 2
-
-
-# --- Stability: 10 consecutive runs ------------------------------------------
-
-
-def test_score_submission_stable_across_10_runs(monkeypatch):
-    """Valid JSON output across 10 consecutive runs (no parsing failures)."""
-    client = _mock_client(_valid_json())
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
-
-    for i in range(10):
-        result = score_submission(f"test-id-{i}", "Some text", groq_api_key="test-key")
-        assert len(result.scores) == 4
-        for score in result.scores:
-            assert 1 <= score.score <= 10
-            assert score.justification
-
-    assert client.chat.completions.create.call_count == 10
-
-
-# --- Unicode dash normalization ---------------------------------------------
-
-
-def test_score_submission_normalizes_unicode_in_justification(monkeypatch):
-    """Unicode dashes in LLM justifications are converted to ASCII hyphens."""
-    scores = {
-        "problem_fit": {
-            "score": 8,
-            "justification": "cost\u2011per\u2011dollar savings",
-        },
-        "technical_depth": {
-            "score": 7,
-            "justification": "end\u2013to\u2013end pipeline",
-        },
-        "feasibility": {
-            "score": 6,
-            "justification": "realistic \u2014 achievable",
-        },
-        "innovation": {
-            "score": 9,
-            "justification": "novel approach",
-        },
-    }
-    client = _mock_client(json.dumps(scores))
-    monkeypatch.setattr("agents.scoring.scorer._get_groq_client", lambda key: client)
-
-    result = score_submission("test-id", "Some text", groq_api_key="test-key")
-
-    assert result.scores[0].justification == "cost-per-dollar savings"
-    assert result.scores[1].justification == "end-to-end pipeline"
-    assert result.scores[2].justification == "realistic - achievable"
-    for s in result.scores:
-        for ch in ("\u2010", "\u2011", "\u2012", "\u2013", "\u2014"):
-            assert ch not in s.justification
+    agents_list = build_specialist_agents()
+    assert [a.criterion for a in agents_list] == CRITERIA_NAMES

@@ -29,12 +29,13 @@ async def score_submission_endpoint(submission_id: str) -> dict:
         )
 
     # --- Score the submission. Image descriptions (v0.3.5), when
-    #     present, are merged into the text the agent sees.
+    #     present, are merged into the text the agents see. The four
+    #     v0.5.0 specialist agents run in parallel behind this call.
     scoring_text = build_scoring_text(
         parsed["raw_text"], parsed.get("image_descriptions")
     )
     try:
-        result: ScoringResult = score_submission(submission_id, scoring_text)
+        result: ScoringResult = await score_submission(submission_id, scoring_text)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except GroqError as exc:

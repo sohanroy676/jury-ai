@@ -214,7 +214,7 @@ def test_score_endpoint_merges_descriptions_into_agent_input(monkeypatch):
             "image_descriptions": FAKE_DESCRIPTIONS,
         }
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         captured_text["value"] = parsed_text
         return ScoringResult(
             submission_id=submission_id,
@@ -255,7 +255,7 @@ def test_score_endpoint_without_descriptions_sends_raw_text(monkeypatch):
             "source_format": "pdf",
         }
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         captured_text["value"] = parsed_text
         return ScoringResult(
             submission_id=submission_id,

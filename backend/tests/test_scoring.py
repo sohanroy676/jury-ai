@@ -46,7 +46,7 @@ def _mock_supabase(monkeypatch):
 def _mock_scoring(monkeypatch):
     """Mock the scoring agent to return a fixed result."""
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         return ScoringResult(
             submission_id=submission_id,
             scores=[
@@ -101,7 +101,7 @@ def test_score_endpoint_not_found(_mock_scoring, monkeypatch):
 def test_score_endpoint_groq_not_configured(_mock_scoring, monkeypatch):
     """When Groq is not configured, returns 503."""
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         raise ValueError("Groq API key is not configured.")
 
     monkeypatch.setattr("backend.routes.scoring.score_submission", fake_score)
@@ -124,7 +124,7 @@ def test_score_endpoint_supabase_not_configured(_mock_scoring, monkeypatch):
 def test_score_endpoint_groq_api_error(_mock_scoring, monkeypatch):
     """When Groq raises an API error, returns 503."""
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         raise GroqError("API error")
 
     monkeypatch.setattr("backend.routes.scoring.score_submission", fake_score)
@@ -136,7 +136,7 @@ def test_score_endpoint_groq_api_error(_mock_scoring, monkeypatch):
 def test_score_endpoint_runtime_error(_mock_scoring, monkeypatch):
     """When scoring fails with RuntimeError (persistent malformed JSON), returns 500."""
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         raise RuntimeError("Failed to get valid JSON from Groq")
 
     monkeypatch.setattr("backend.routes.scoring.score_submission", fake_score)

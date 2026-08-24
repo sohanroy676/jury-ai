@@ -109,7 +109,7 @@ def store(monkeypatch):
 def _mock_scoring(monkeypatch):
     """Fixed scoring result — keeps Groq out of the loop test."""
 
-    def fake_score(submission_id, parsed_text, groq_api_key=None):
+    async def fake_score(submission_id, parsed_text, groq_api_key=None):
         assert MARKER in parsed_text, "parsed text must reach the agent"
         return ScoringResult(
             submission_id=submission_id,
