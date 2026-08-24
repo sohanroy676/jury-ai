@@ -45,7 +45,7 @@
 - **`VisionRateLimitError` subclasses `groq.RateLimitError`** so the pipeline's single `except RateLimitError` breaker trips for ANY vision provider; non-Groq describers raise it after exhausting retries (it builds a synthetic `httpx.Response(429)` internally — groq's APIStatusError reads `response.request`, so None crashes).
 - **Decorative-labeled CLIP results are never vision-described (any confidence); ambiguous decorative tops get a diagram-floor rescue inside classify.py** — if the best diagram-label probability ≥ `IMAGE_DIAGRAM_FLOOR` (default 0.30, calibrated on scango.pdf: banners ≤0.27, misread flow 0.32), that diagram label replaces the top so routing describes it. The rescue lives in classify.py because it owns the probs — keeps the pipeline's 2-tuple ClassifyFn contract intact.
 - **Always pass `force_quick_gelu=True` when loading OpenAI-pretrained CLIP weights** — without it open_clip warns and embeddings silently degrade.
-- **CHANGELOG regeneration uses git-cliff with the committed `cliff.toml`** (docs/chore commits filtered out; scope entries to `git cliff <last-release-point>..HEAD --prepend CHANGELOG.md`).
+- **CHANGELOG regeneration runs `scripts/regenerate_changelog.py <last-covered-sha>..HEAD`** (wraps git-cliff; docs/chore commits filtered; generated bullets merge into the top of matching `[Unreleased]` sections with sha links).
 
 ## Things to avoid
 
