@@ -47,6 +47,8 @@
 - **Always pass `force_quick_gelu=True` when loading OpenAI-pretrained CLIP weights** — without it open_clip warns and embeddings silently degrade.
 - **CHANGELOG regeneration runs `scripts/regenerate_changelog.py <last-covered-sha>..HEAD`** (wraps git-cliff; docs/chore commits filtered; generated bullets merge into the top of matching `[Unreleased]` sections with sha links).
 
+- **Project version lives in root `version.py` (`APP_VERSION`).** Bump it together with the git tag and `frontend/package.json` in the same commit; FastAPI/OpenAPI metadata, the scorer's `AGENT_VERSION` (persisted per score row as provenance), and the README status line all derive from it. Per-module provenance strings (e.g. `DESCRIBER_VERSION`) intentionally track their own last-change release instead. Drift guard: `backend/tests/test_version.py`.
+
 ## Things to avoid
 
 - **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.
