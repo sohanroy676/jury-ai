@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [v1.0.0] - 2026-08-25
+
+### Bug Fixes
+
+* **test:** Align criterion label assertion and EOF formatting ([8ed4fb5](https://github.com/sohanroy676/jury-ai/commit/8ed4fb5e60fde288a187eb2fd24bc3289ba03b26))
+* **cors:** Allow PUT preflight for rubric saves ([8976c52](https://github.com/sohanroy676/jury-ai/commit/8976c520029e9342eada967e33ac1af347711592))
+
+### Features
+
+* Implement frontend ([971a362](https://github.com/sohanroy676/jury-ai/commit/971a3620cbb098f033c9052a30dd5485157bb8ac))
+
 ## [v0.7.0] - 2026-08-25
 
 ### Features
