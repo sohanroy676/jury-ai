@@ -193,6 +193,30 @@ def test_cors_allows_frontend_origin():
     )
 
 
+def test_cors_preflight_allows_put_for_rubrics():
+    """Saving rubric weights from the dashboard sends PUT with a JSON
+    body, so browsers preflight it. Starlette's CORSMiddleware answers
+    a preflight whose requested method is not whitelisted with
+    400 'Disallowed CORS method' (surfaced in the UI as 'Network error
+    could not reach the backend'). Regression test for the v0.6.0
+    PUT /api/rubrics route being unreachable while CORS allowed only
+    GET/POST."""
+    resp = client.options(
+        "/api/rubrics/default",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "PUT",
+            "Access-Control-Request-Headers": "Content-Type",
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert "PUT" in resp.headers.get("access-control-allow-methods", "")
+    assert (
+        "content-type" in resp.headers.get("access-control-allow-headers", "").lower()
+    )
+
+
 def test_cors_rejects_unlisted_origin():
     """An origin not in FRONTEND_URL should not get an allow-origin header."""
     resp = client.options(
