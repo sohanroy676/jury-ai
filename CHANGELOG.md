@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [v0.7.0] - 2026-08-25
+
+### Features
+
+* **feedback:** Add feedback agent and exports ([c8359a1](https://github.com/sohanroy676/jury-ai/commit/c8359a130cdee20d580d71238ac3085f073f03e7))
+
 ## [v0.6.0] - 2026-08-24
 
 ### Features
