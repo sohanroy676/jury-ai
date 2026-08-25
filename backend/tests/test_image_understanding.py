@@ -63,7 +63,7 @@ def _mock_supabase(monkeypatch):
     def fake_upload(file_bytes, file_name, file_type):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
-    def fake_insert(team_name, file_url, file_type):
+    def fake_insert(team_name, file_url, file_type, supersedes_team=False):
         return {
             "id": "00000000-0000-0000-0000-000000000001",
             "team_name": team_name,
@@ -86,6 +86,13 @@ def _mock_supabase(monkeypatch):
 
     monkeypatch.setattr(supabase, "upload_submission_file", fake_upload)
     monkeypatch.setattr(supabase, "insert_submission", fake_insert)
+    # v1.1.0: the upload route consults the re-submission gate; nothing is
+    # active in these fixtures.
+    monkeypatch.setattr(
+        supabase,
+        "get_active_submission_by_team",
+        lambda team_name: None,
+    )
     monkeypatch.setattr(supabase, "insert_parsed_submission", fake_insert_parsed)
     return captured
 

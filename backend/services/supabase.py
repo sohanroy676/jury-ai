@@ -5,6 +5,8 @@ This module intentionally exposes a narrow API so the rest of the
 backend never deals with Supabase internals directly.
 """
 
+from datetime import datetime, timezone
+
 from supabase import Client, create_client
 
 from agents.scoring.base import CRITERIA_NAMES
@@ -68,18 +70,32 @@ def upload_submission_file(file_bytes: bytes, file_name: str, file_type: str) ->
     )
 
 
-def insert_submission(team_name: str, file_url: str, file_type: str) -> dict:
+def insert_submission(
+    team_name: str,
+    file_url: str,
+    file_type: str,
+    supersedes_team: bool = False,
+) -> dict:
     """Insert a submission row into Supabase Postgres.
 
     Args:
         team_name: The team's name.
         file_url: Public URL of the uploaded file.
         file_type: One of ``pdf`` or ``pptx``.
+        supersedes_team: When True (v1.1.0 re-submission), first archive
+            the team's current active submission by stamping
+            ``superseded_at`` so history is preserved while only the new
+            row stays active. No-op when the team has no active row.
 
     Returns:
         The inserted row as a dict.
     """
     client = get_client()
+
+    if supersedes_team:
+        client.table("submissions").update(
+            {"superseded_at": datetime.now(timezone.utc).isoformat()}
+        ).ilike("team_name", team_name).is_("superseded_at", "null").execute()
 
     row = (
         client.table("submissions")
@@ -88,6 +104,36 @@ def insert_submission(team_name: str, file_url: str, file_type: str) -> dict:
         .data[0]
     )
 
+    return row
+
+
+def get_active_submission_by_team(team_name: str) -> dict | None:
+    """Return the team's ACTIVE submission (v1.1.0), or ``None``.
+
+    Matching is case-insensitive but exact: ``ilike`` narrows the query,
+    then equality is re-verified in Python so pattern characters in team
+    names (``%``, ``_``) can never widen the match.
+
+    Returns:
+        The newest unsuperseded row for the team, or ``None``.
+    """
+    client = get_client()
+
+    result = (
+        client.table("submissions")
+        .select("*")
+        .ilike("team_name", team_name)
+        .is_("superseded_at", "null")
+        .order("uploaded_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    if not rows:
+        return None
+    row = rows[0]
+    if row["team_name"].strip().lower() != team_name.strip().lower():
+        return None
     return row
 
 
@@ -265,24 +311,27 @@ def insert_scores(
     return result.data
 
 
-def list_submissions(limit: int = 100) -> list[dict]:
+def list_submissions(limit: int = 100, include_superseded: bool = False) -> list[dict]:
     """List submission rows, newest first (uploaded_at descending).
+
+    By default only ACTIVE submissions are returned (v1.1.0): rows whose
+    ``superseded_at`` is set are archived re-submission history and are
+    excluded from listings, leaderboards, and batch scoring. Pass
+    ``include_superseded=True`` to see archived rows too.
 
     Args:
         limit: Maximum number of rows to return.
+        include_superseded: Include archived (superseded) rows as well.
 
     Returns:
         A list of submission row dicts; empty when none exist.
     """
     client = get_client()
 
-    result = (
-        client.table("submissions")
-        .select("*")
-        .order("uploaded_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+    query = client.table("submissions").select("*")
+    if not include_superseded:
+        query = query.is_("superseded_at", "null")
+    result = query.order("uploaded_at", desc=True).limit(limit).execute()
 
     return list(result.data or [])
 

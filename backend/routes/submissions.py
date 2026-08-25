@@ -27,12 +27,19 @@ MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 async def create_submission(
     team_name: str = Form(...),
     file: UploadFile = File(...),
+    replace_existing: bool = Form(False),
 ) -> dict:
     """Upload a submission file, parse it, and store both.
 
     Validates the file type and size, parses the file into structured text,
     uploads to Supabase Storage, then inserts rows into the `submissions`
     and `parsed_submissions` tables.
+
+    Re-submission (v1.1.0): when the team already has an active submission,
+    the request is rejected with 409 unless ``replace_existing`` is true —
+    in which case the previous active row is archived (``superseded_at``
+    stamped, history preserved) and this upload becomes the team's active
+    submission.
     """
     # --- Validate file type by extension (never trust the client).
     file_ext = os.path.splitext(file.filename or "")[1].lower()
@@ -46,6 +53,23 @@ async def create_submission(
     # --- Validate team name is non-empty.
     if not team_name.strip():
         raise HTTPException(status_code=400, detail="Team name is required.")
+
+    # --- Re-submission gate (v1.1.0): a duplicate upload under the same
+    #     team name must be an explicit replace, so the portal can show a
+    #     confirmation prompt driven by this 409.
+    try:
+        existing_active = supabase.get_active_submission_by_team(team_name)
+    except supabase.SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if existing_active is not None and not replace_existing:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Team '{team_name.strip()}' already has an active submission "
+                f"(uploaded {existing_active['uploaded_at']}). "
+                "Confirm below to replace it - the previous version is kept in history."
+            ),
+        )
 
     # --- Read and validate file size.
     file_bytes = await file.read()
@@ -96,9 +120,12 @@ async def create_submission(
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    # --- Insert a row into the submissions table.
+    # --- Insert a row into the submissions table (archiving the team's
+    #     previous active row first when this is an explicit re-submission).
     try:
-        row = supabase.insert_submission(team_name, file_url, file_type)
+        row = supabase.insert_submission(
+            team_name, file_url, file_type, supersedes_team=bool(existing_active)
+        )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

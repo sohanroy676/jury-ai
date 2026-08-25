@@ -39,7 +39,7 @@ def store(monkeypatch):
     def fake_upload(file_bytes, file_name, file_type):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
-    def fake_insert_submission(team_name, file_url, file_type):
+    def fake_insert_submission(team_name, file_url, file_type, supersedes_team=False):
         row = {
             "id": str(uuid.uuid4()),
             "team_name": team_name,
@@ -85,6 +85,13 @@ def store(monkeypatch):
 
     monkeypatch.setattr(supabase, "upload_submission_file", fake_upload)
     monkeypatch.setattr(supabase, "insert_submission", fake_insert_submission)
+    # v1.1.0: the upload route consults the re-submission gate; no team has
+    # an active submission in this store unless a test registers one.
+    monkeypatch.setattr(
+        supabase,
+        "get_active_submission_by_team",
+        lambda team_name: None,
+    )
 
     def fake_get_submission(submission_id):
         row = state["submissions"].get(submission_id)
