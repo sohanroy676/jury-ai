@@ -265,4 +265,3 @@ def test_batch_reports_unparsed_item_and_continues(store, score_calls):
     assert "not found or not yet parsed" in by_id["noparse"]["error"]
     assert by_id["fine"]["ok"] is True
     assert score_calls == ["fine"]
-

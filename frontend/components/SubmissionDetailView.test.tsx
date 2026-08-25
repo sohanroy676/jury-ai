@@ -69,7 +69,9 @@ describe("SubmissionDetailView", () => {
     await renderDetail();
 
     expect(screen.getByText("Quantum Quokka")).toBeTruthy();
-    expect(screen.getByText("Problem fit")).toBeTruthy();
+    // The component renders criterion keys with underscores replaced by
+    // spaces (lowercase), matching the dashboard's label convention.
+    expect(screen.getByText("problem fit")).toBeTruthy();
     expect(screen.getByText("9")).toBeTruthy();
     expect(
       screen.getByText("Clear problem statement.")
