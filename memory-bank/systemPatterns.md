@@ -66,6 +66,13 @@
 - **The frontend talks to the backend exclusively through `frontend/lib/api.ts`.** Typed response interfaces mirror the routes; every call funnels through `request<T>()`, converting network failures and non-2xx into `ApiError(status, humanMessage)` — 429 maps to a rate-limit explainer, otherwise the backend's own `detail` string passes through. Pages/components must not call `fetch` directly; keeps the pre-deploy "no leaked internals" rule enforceable in one place.
 - **Dynamic app-router pages stay thin server wrappers.** `app/submissions/[id]/page.tsx` awaits the Next 15 `params` Promise and renders `<SubmissionDetailView submissionId={id} />`; all logic lives in the client component so Vitest exercises props directly without router mocks.
 
+### v1.1.0 additions
+
+- **Submission identity is the case-insensitive exact team name.** Re-submission archives via `superseded_at` (NULL = active); every listing/leaderboard/batch path sees ACTIVE rows only through `list_submissions()`'s default filter, while id-addressed reads still serve archived rows for history. `get_active_submission_by_team` narrows with ilike but RE-VERIFIES equality in Python — PostgREST ilike makes `%`/`_` wildcard-happy.
+- **UI pipeline stages are DERIVED at read time** (parsed row present? complete four-criterion set? feedback verdict?) — never written to `submissions.status`, matching compute-on-the-fly composites; StageTracker consumes the derivation and polls while no verdict exists.
+- **Portal forms avoid native `required`:** inline styled validation owns messaging and gates submit via `formReady`. jsdom lesson: constraint validation silently blocks programmatic-file-input submits in tests.
+- **Archive ordering is archive-BEFORE-insert** inside `insert_submission(supersedes_team=True)` — a crash between the two statements leaves zero-or-one active rows, never two.
+
 ## Things to avoid
 
 - **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.
