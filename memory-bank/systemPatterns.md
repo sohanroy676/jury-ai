@@ -72,6 +72,7 @@
 - **UI pipeline stages are DERIVED at read time** (parsed row present? complete four-criterion set? feedback verdict?) — never written to `submissions.status`, matching compute-on-the-fly composites; StageTracker consumes the derivation and polls while no verdict exists.
 - **Portal forms avoid native `required`:** inline styled validation owns messaging and gates submit via `formReady`. jsdom lesson: constraint validation silently blocks programmatic-file-input submits in tests.
 - **Archive ordering is archive-BEFORE-insert** inside `insert_submission(supersedes_team=True)` — a crash between the two statements leaves zero-or-one active rows, never two.
+- **Export/download URLs must forward the cutoff that produced the view.** The ranking engine treats no-cutoff as nobody-shortlisted, so an Export CSV/PDF link built without top_n/min_score silently exports a different board than what the evaluator sees. exportCsvUrl(hackathonId, topN, minScore?) and exportPdfUrl(submissionId, hackathonId, topN?) take cutoff params and every call site forwards live state (appliedTopN on the dashboard, the top-N input on the detail view) - no URL call site calls these helpers without forwarding its view cutoff.
 
 ## Things to avoid
 

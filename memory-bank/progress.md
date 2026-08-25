@@ -34,4 +34,4 @@
 
 ## In progress
 
-- (none) — v1.1.0 implemented & committed on `feature/v1.1.0-submission-ux`, awaiting user review/merge; next milestone v1.2.0 Notifications in a fresh session once shipped.
+- (none) — v1.1.0 shipped; starting v1.2.0 Notifications in a fresh session that reads this memory-bank first.
