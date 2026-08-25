@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, exportCsvUrl, exportPdfUrl, fetchRankings } from "./api";
+import {
+  ApiError,
+  exportCsvUrl,
+  exportPdfUrl,
+  fetchRankings,
+  uploadSubmission,
+} from "./api";
 
 function stubFetch(impl: () => Promise<unknown>) {
   const fn = vi.fn(impl);
@@ -109,9 +115,95 @@ describe("export URL builders", () => {
     );
   });
 
+  it("carries an explicit top_n cutoff into the CSV URL", () => {
+    expect(exportCsvUrl("default", { topN: 3 })).toBe(
+      "http://localhost:8000/api/export/csv?hackathon_id=default&top_n=3"
+    );
+  });
+
+  it("carries min_score into the CSV URL when given", () => {
+    expect(exportCsvUrl("default", { minScore: 7.5 })).toBe(
+      "http://localhost:8000/api/export/csv?hackathon_id=default&min_score=7.5"
+    );
+  });
+
   it("encodes the submission id into the PDF URL path", () => {
     expect(exportPdfUrl("abc/def")).toBe(
-      "http://localhost:8000/api/export/submissions/abc%2Fdef/pdf"
+      "http://localhost:8000/api/export/submissions/abc%2Fdef/pdf?hackathon_id=default"
     );
+  });
+
+  it("carries hackathon_id and top_n into the PDF URL", () => {
+    expect(exportPdfUrl("abc", { hackathonId: "sih", topN: 3 })).toBe(
+      "http://localhost:8000/api/export/submissions/abc/pdf?hackathon_id=sih&top_n=3"
+    );
+  });
+});
+
+describe("uploadSubmission", () => {
+  const FILE = new File(["pdf-bytes"], "proposal.pdf", {
+    type: "application/pdf",
+  });
+
+  it("posts multipart form data to /api/submissions", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: "sub-1", team_name: "Team Alpha" }),
+      })
+    );
+
+    await uploadSubmission("Team Alpha", FILE);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:8000/api/submissions");
+    expect(init.method).toBe("POST");
+    const body = init.body as FormData;
+    expect(body.get("team_name")).toBe("Team Alpha");
+    expect(body.get("file")).toBeTruthy();
+    // No replace flag unless explicitly requested.
+    expect(body.get("replace_existing")).toBeNull();
+  });
+
+  it("appends replace_existing when a replacement was confirmed", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: "sub-2", team_name: "Team Alpha" }),
+      })
+    );
+
+    await uploadSubmission("Team Alpha", FILE, { replaceExisting: true });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.body as FormData).get("replace_existing")).toBe("true");
+  });
+
+  it("surfaces the backend 409 detail for the replace-confirm flow", async () => {
+    stubFetch(() =>
+      Promise.resolve({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          detail: "Team 'X' already has an active submission.",
+        }),
+      })
+    );
+
+    await expect(uploadSubmission("X", FILE)).rejects.toMatchObject({
+      status: 409,
+      message: "Team 'X' already has an active submission.",
+    });
+  });
+
+  it("maps network failures to the friendly message", async () => {
+    stubFetch(() => Promise.reject(new Error("connection refused")));
+
+    await expect(uploadSubmission("X", FILE)).rejects.toMatchObject({
+      status: 0,
+      message: "Network error — could not reach the backend.",
+    });
   });
 });

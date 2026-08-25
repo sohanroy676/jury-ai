@@ -15,7 +15,11 @@ vi.mock("../../lib/api", () => {
     API_URL: "http://test",
     ApiError: FakeApiError,
     CRITERIA: ["problem_fit", "technical_depth", "feasibility", "innovation"],
-    exportCsvUrl: () => "http://test/export.csv",
+    exportCsvUrl: vi.fn((hackathonId: string, options?: { topN?: number }) =>
+      options?.topN != null
+        ? `http://test/export.csv?hackathon_id=${hackathonId}&top_n=${options.topN}`
+        : `http://test/export.csv?hackathon_id=${hackathonId}`
+    ),
     fetchRankings: vi.fn(),
     saveRubric: vi.fn(),
     scorePending: vi.fn(),
@@ -115,6 +119,27 @@ describe("DashboardPage", () => {
         content.includes("using fallback equal weights")
       )
     ).toBeTruthy();
+  });
+
+  it("carries the applied Top N cutoff into the CSV export link", async () => {
+    await renderDashboard();
+    // One ranking was already loaded when the board rendered; the anchor
+    // reflects the URL the browser would download.
+    let link = screen.getByText("Export CSV").closest("a");
+    expect(link?.getAttribute("href")).toContain("hackathon_id=default");
+    expect(link?.getAttribute("href")).not.toContain("top_n");
+
+    // Apply a top-n cutoff exactly as an evaluator would.
+    fireEvent.change(screen.getByLabelText("Shortlist top"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+
+    await waitFor(() =>
+      expect(mockRankings).toHaveBeenLastCalledWith("default", { topN: 3 })
+    );
+    link = screen.getByText("Export CSV").closest("a") as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toContain("top_n=3");
   });
 
   it("shows the empty state when nothing is fully scored", async () => {

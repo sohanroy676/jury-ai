@@ -170,6 +170,25 @@ def test_csv_rejects_both_cutoffs(store):
     assert "not both" in resp.json()["detail"]
 
 
+def test_csv_without_cutoff_shortlists_nothing(store):
+    """With no top_n/min_score the engine deliberately shortlists NOTHING
+    (shortlisted defaults False). This is the contract behind the v1.1
+    'everyone shows no' bug: the UI applied top_n=3 but the export URL
+    omitted it, so the download reflected the no-cutoff board. Keeping
+    the regression explicit documents WHY the frontend must forward the
+    cutoff."""
+    store.add_submission("id-a", "Alpha")
+    store.add_submission("id-b", "Bravo")
+    store.add_scores("id-a", problem_fit=7)
+    store.add_scores("id-b", problem_fit=9)
+
+    resp = client.get("/api/export/csv")
+
+    rows = _parse_csv(resp)[1:]
+    assert rows, "expected two scored rows"
+    assert all(row[-1] == "no" for row in rows)
+
+
 def test_csv_supabase_down_503(store, monkeypatch):
     def broken(*args, **kwargs):
         raise supabase.SupabaseNotConfiguredError("not configured")

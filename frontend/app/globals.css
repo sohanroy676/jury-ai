@@ -295,3 +295,51 @@ table.scores thead th {
 .feedback-card ul {
   margin: 0 0 0.75rem 1.25rem;
 }
+
+.stage-tracker {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+.stage-tracker li {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid #e2e8f0;
+  color: #718096;
+  background: #f7fafc;
+}
+
+.stage-tracker li.stage-done {
+  background: #bee3f8;
+  border-color: #90cdf4;
+  color: #2a4365;
+  font-weight: 600;
+}
+
+.stage-tracker li.stage-verdict {
+  background: #c6f6d5;
+  border-color: #68d391;
+  color: #22543d;
+}
+
+.conflict-box {
+  border: 1px solid #feb2b2;
+  background: #fff5f5;
+  color: #822727;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.conflict-box p {
+  margin: 0;
+}

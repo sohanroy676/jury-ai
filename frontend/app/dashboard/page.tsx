@@ -185,7 +185,14 @@ export default function DashboardPage() {
             onChange={(e) => setTopNInput(e.target.value)}
           />
           <button type="submit">Apply</button>
-          <a className="button-link" href={exportCsvUrl(HACKATHON_ID)}>
+          <a
+            className="button-link"
+            href={
+              appliedTopN !== undefined
+                ? exportCsvUrl(HACKATHON_ID, { topN: appliedTopN })
+                : exportCsvUrl(HACKATHON_ID)
+            }
+          >
             Export CSV
           </a>
         </form>

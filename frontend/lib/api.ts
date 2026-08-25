@@ -135,6 +135,13 @@ export interface BatchScoreResult {
   results: BatchScoreItem[];
 }
 
+export interface UploadedSubmission {
+  id: string;
+  team_name: string;
+  status?: string;
+  uploaded_at?: string;
+}
+
 // --- Endpoints ----------------------------------------------------------
 
 export function fetchSubmissions(): Promise<SubmissionRow[]> {
@@ -147,6 +154,39 @@ export function fetchSubmission(
   return request<SubmissionDetail>(
     `/api/submissions/${encodeURIComponent(submissionId)}`
   );
+}
+
+// v1.1.0: the multipart upload lives here (not in the portal page) so
+// every backend call funnels through this module's error mapping. A 409
+// means the team already has an active submission — the caller shows its
+// "replace previous version" confirmation and retries with replaceExisting.
+export async function uploadSubmission(
+  teamName: string,
+  file: File,
+  options: { replaceExisting?: boolean } = {}
+): Promise<UploadedSubmission> {
+  const formData = new FormData();
+  formData.append("team_name", teamName);
+  formData.append("file", file);
+  if (options.replaceExisting) {
+    formData.append("replace_existing", "true");
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${API_URL}/api/submissions`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    throw new ApiError(0, "Network error — could not reach the backend.");
+  }
+
+  const body = await resp.json().catch(() => ({}) as { detail?: unknown });
+  if (!resp.ok) {
+    throw new ApiError(resp.status, friendlyMessage(resp.status, body.detail));
+  }
+  return body as UploadedSubmission;
 }
 
 export async function fetchRankings(
@@ -221,10 +261,30 @@ export function scorePending(limit: number): Promise<BatchScoreResult> {
 
 // --- Export URLs (direct downloads, no JSON wrapper) --------------------
 
-export function exportCsvUrl(hackathonId: string): string {
-  return `${API_URL}/api/export/csv?hackathon_id=${encodeURIComponent(hackathonId)}`;
+export function exportCsvUrl(
+  hackathonId: string,
+  options: { topN?: number; minScore?: number } = {}
+): string {
+  // Manual query building (not URLSearchParams) so space encoding stays
+  // byte-compatible with the original encodeURIComponent contract.
+  const parts = [`hackathon_id=${encodeURIComponent(hackathonId)}`];
+  if (options.topN != null) parts.push(`top_n=${options.topN}`);
+  if (options.minScore != null) parts.push(`min_score=${options.minScore}`);
+  return `${API_URL}/api/export/csv?${parts.join("&")}`;
 }
 
-export function exportPdfUrl(submissionId: string): string {
-  return `${API_URL}/api/export/submissions/${encodeURIComponent(submissionId)}/pdf`;
+// The shortlist cutoff rides along so a downloaded report reflects the
+// same context the evaluator was looking at — without it the engine
+// treats "no cutoff" as nobody-shortlisted (v1.1 CSV bug).
+export function exportPdfUrl(
+  submissionId: string,
+  options: { hackathonId?: string; topN?: number } = {}
+): string {
+  const parts = [
+    `hackathon_id=${encodeURIComponent(options.hackathonId ?? "default")}`,
+  ];
+  if (options.topN != null) parts.push(`top_n=${options.topN}`);
+  return `${API_URL}/api/export/submissions/${encodeURIComponent(
+    submissionId
+  )}/pdf?${parts.join("&")}`;
 }

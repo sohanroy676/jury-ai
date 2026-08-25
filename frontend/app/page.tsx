@@ -3,16 +3,24 @@
 import { useCallback, useEffect, useState } from "react";
 
 import NavLinks from "../components/NavLinks";
-import { fetchSubmissions, SubmissionRow } from "../lib/api";
+import {
+  ApiError,
+  fetchSubmission,
+  fetchSubmissions,
+  SubmissionRow,
+  uploadSubmission,
+} from "../lib/api";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".pptx"];
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const MAX_UPLOAD_MB = 50;
 
 export default function Home() {
   const [teamName, setTeamName] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [submissions, setSubmissions] = useState<SubmissionRow[] | null>(null);
@@ -32,32 +40,46 @@ export default function Home() {
     void loadSubmissions();
   }, [loadSubmissions]);
 
+  // Pre-submit validation (v1.1.0): format, empty, and size problems are
+  // caught the moment a file is chosen — never only on the server.
+  function validateFile(selected: File): string | null {
+    const ext = selected.name.toLowerCase().split(".").pop();
+    if (!ext || !ALLOWED_EXTENSIONS.includes(`.${ext}`)) {
+      return `Unsupported file type ".${ext}". Only .pdf and .pptx are allowed.`;
+    }
+    if (selected.size === 0) {
+      return "That file looks empty. Please choose a valid PDF or PPTX.";
+    }
+    if (selected.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      const mb = selected.size / (1024 * 1024);
+      return `File too large (${mb.toFixed(
+        1
+      )} MB). The maximum size is ${MAX_UPLOAD_MB} MB.`;
+    }
+    return null;
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null;
     setError(null);
     setSuccess(null);
+    setConflictMessage(null);
 
     if (!selected) {
       setFile(null);
+      setFileError(null);
       return;
     }
 
-    const ext = selected.name.toLowerCase().split(".").pop();
-    if (!ext || !ALLOWED_EXTENSIONS.includes(`.${ext}`)) {
-      setError(
-        `Unsupported file type ".${ext}". Only .pdf and .pptx are allowed.`
-      );
-      setFile(null);
-      return;
-    }
-
-    setFile(selected);
+    const problem = validateFile(selected);
+    setFileError(problem);
+    setFile(problem ? null : selected);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSubmit(replaceExisting: boolean) {
     setError(null);
     setSuccess(null);
+    setConflictMessage(null);
 
     if (!teamName.trim()) {
       setError("Team name is required.");
@@ -70,34 +92,52 @@ export default function Home() {
 
     setSubmitting(true);
     try {
-      const formData = new FormData();
-      formData.append("team_name", teamName);
-      formData.append("file", file);
+      const data = await uploadSubmission(teamName, file, { replaceExisting });
 
-      const resp = await fetch(`${API_URL}/api/submissions`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        setError(body.detail ?? `Upload failed (HTTP ${resp.status}).`);
-        return;
+      // v1.1.0: surface what the parser found so teams immediately see
+      // whether their document structure came through. Non-fatal on error.
+      let sectionNote = "";
+      try {
+        const detail = await fetchSubmission(data.id);
+        const titles = (detail.parsed?.sections ?? [])
+          .map((section) =>
+            typeof section === "string"
+              ? section
+              : String((section as { title?: unknown } | null)?.title ?? "")
+          )
+          .filter((title) => title.length > 0);
+        sectionNote =
+          titles.length > 0
+            ? ` Parsed sections (${titles.length}): ${titles.join(", ")}.`
+            : " No titled sections were detected in the document.";
+      } catch {
+        // Section feedback is a nicety — an unreadable response must not
+        // make a successful upload look failed.
       }
 
-      const data = await resp.json();
-      setSuccess(
-        `Submission received! ID: ${data.id}. Status: ${data.status}.`
-      );
+      setSuccess(`Submission received! ID: ${data.id}.${sectionNote}`);
       setTeamName("");
       setFile(null);
       void loadSubmissions();
-    } catch {
-      setError("Network error — could not reach the backend.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setConflictMessage(err.message);
+      } else if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("Unexpected error during upload.");
+      }
     } finally {
       setSubmitting(false);
     }
   }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void doSubmit(false);
+  }
+
+  const formReady = Boolean(teamName.trim()) && file !== null;
 
   return (
     <main>
@@ -116,27 +156,50 @@ export default function Home() {
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
             placeholder="e.g. Team Alpha"
-            required
           />
         </div>
 
         <div>
           <label htmlFor="file">Submission file (.pdf / .pptx)</label>
+          {/* No `required` here on purpose: v1.1.0's inline validation owns
+              the messaging (native tooltips would fight it), and submit is
+              gated by `formReady` anyway. */}
           <input
             id="file"
             type="file"
             accept=".pdf,.pptx"
             onChange={handleFileChange}
-            required
           />
+          {fileError && <p className="error">{fileError}</p>}
         </div>
 
         {error && <p className="error">{error}</p>}
+        {conflictMessage && (
+          <div className="conflict-box" role="alert">
+            <p>{conflictMessage}</p>
+            <button
+              type="button"
+              onClick={() => void doSubmit(true)}
+              disabled={submitting}
+            >
+              {submitting ? "Replacing…" : "Replace previous submission"}
+            </button>
+            <p className="hint">
+              Your earlier version stays in history; only the newest one is
+              evaluated.
+            </p>
+          </div>
+        )}
         {success && <p className="success">{success}</p>}
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" disabled={submitting || !formReady}>
           {submitting ? "Uploading…" : "Submit"}
         </button>
+        {!formReady && !submitting && (
+          <p className="hint">
+            A team name and a valid PDF/PPTX file are required to submit.
+          </p>
+        )}
       </form>
 
       <section className="card">

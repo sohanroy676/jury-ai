@@ -12,6 +12,13 @@ from backend.services import supabase
 
 client = TestClient(app)
 
+# Per-test registries backing the re-submission gate (v1.1.0):
+# - _active_by_team maps lowercased team names to their ACTIVE row;
+# - _insert_calls records every insert_submission invocation so tests
+#   can assert the archive flag that reached the service layer.
+_active_by_team: dict[str, dict] = {}
+_insert_calls: list[dict] = []
+
 
 @pytest.fixture(autouse=True)
 def _mock_supabase(monkeypatch):
@@ -20,7 +27,12 @@ def _mock_supabase(monkeypatch):
     def fake_upload(file_bytes, file_name, file_type):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
-    def fake_insert(team_name, file_url, file_type):
+    insert_calls = _insert_calls
+    insert_calls.clear()
+    _active_by_team.clear()
+
+    def fake_insert(team_name, file_url, file_type, supersedes_team=False):
+        insert_calls.append({"supersedes_team": supersedes_team})
         return {
             "id": "00000000-0000-0000-0000-000000000001",
             "team_name": team_name,
@@ -45,9 +57,14 @@ def _mock_supabase(monkeypatch):
             "image_descriptions": image_descriptions or [],
         }
 
+    def fake_get_active(team_name):
+        # Default: no active submission for any team.
+        return _active_by_team.get(team_name.strip().lower())
+
     monkeypatch.setattr(supabase, "upload_submission_file", fake_upload)
     monkeypatch.setattr(supabase, "insert_submission", fake_insert)
     monkeypatch.setattr(supabase, "insert_parsed_submission", fake_insert_parsed)
+    monkeypatch.setattr(supabase, "get_active_submission_by_team", fake_get_active)
 
 
 def _pdf_bytes() -> bytes:
@@ -108,6 +125,64 @@ def test_upload_rejects_unsupported_extension():
     )
     assert resp.status_code == 400
     assert "Unsupported file type" in resp.json()["detail"]
+
+
+def test_upload_conflict_when_team_has_active_submission():
+    """v1.1.0: a duplicate upload for a team with an ACTIVE submission is
+    rejected with 409 unless the caller opts into replacing."""
+    _active_by_team["team alpha"] = {
+        "id": "00000000-0000-0000-0000-0000000000aa",
+        "team_name": "Team Alpha",
+        "uploaded_at": "2026-08-25T10:00:00+00:00",
+    }
+
+    # Exact-name duplicate...
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Team Alpha"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 409
+    assert "already has an active submission" in resp.json()["detail"]
+
+    # ...and the match is case-insensitive (identity = normalized name).
+    resp_ci = client.post(
+        "/api/submissions",
+        data={"team_name": "TEAM ALPHA"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp_ci.status_code == 409
+
+
+def test_upload_replace_existing_archives_previous():
+    """v1.1.0: replace_existing=true lets the re-upload through and flags
+    the insert so the service layer archives the superseded row."""
+    _active_by_team["team alpha"] = {
+        "id": "00000000-0000-0000-0000-0000000000aa",
+        "team_name": "Team Alpha",
+        "uploaded_at": "2026-08-25T10:00:00+00:00",
+    }
+
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Team Alpha", "replace_existing": "true"},
+        files={"file": ("proposal-v2.pdf", _pdf_bytes(), "application/pdf")},
+    )
+
+    assert resp.status_code == 201, resp.text
+    assert len(_insert_calls) == 1
+    assert _insert_calls[0]["supersedes_team"] is True
+
+
+def test_upload_no_conflict_for_fresh_team():
+    """A brand-new team uploads normally; no archive flag is sent."""
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Brand New Team"},
+        files={"file": ("first.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 201
+    assert _insert_calls[-1]["supersedes_team"] is False
 
 
 def test_upload_rejects_docx():
