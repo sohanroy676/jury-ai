@@ -54,6 +54,12 @@
 
 - **Project version lives in root `version.py` (`APP_VERSION`).** Bump it together with the git tag and `frontend/package.json` in the same commit; FastAPI/OpenAPI metadata, the scorer's `AGENT_VERSION` (persisted per score row as provenance), and the README status line all derive from it. Per-module provenance strings (e.g. `DESCRIBER_VERSION`) intentionally track their own last-change release instead. Drift guard: `backend/tests/test_version.py`.
 
+- **Export filenames from user-controlled input are always sanitized** (`_safe_filename_stem` in `backend/routes/export.py`): reduce to `[A-Za-z0-9_-]` runs collapsed to single underscores (fallback stem), then embedded in Content-Disposition - prevents header injection from team names / hackathon ids.
+- **Feedback is one CURRENT row per submission (upsert), while scores stay append-only history.** Derived feedback reflects the latest scores and overwrites via `upsert(on_conflict="submission_id")` (migration 0007: `feedback` table); score rows keep every scoring pass. Feedback rows store `agent_version` for provenance.
+- **Ranking context is computed in exactly one place.** `load_leaderboard()` (`backend/routes/ranking.py`) is the single path to composite/rank/shortlist for GET /api/rankings, feedback generation, CSV export, and PDF export - surfaces can never disagree.
+- **PDF reports render & escape everything** (`backend/services/pdf.py`, ReportLab): LLM/user text (justifications, feedback bullets) passes through `xml.sax.saxutils.escape` before Paragraph markup; missing feedback renders a placeholder note rather than failing the export.
+- **Additive PDF health is regression-tested by building real PDFs in-memory** (assert `%PDF` magic + `%%EOF` trailer) - keeps the free-tier ReportLab path safe without a paid API.
+
 ## Things to avoid
 
 - **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.

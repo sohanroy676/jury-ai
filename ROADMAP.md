@@ -4,9 +4,11 @@
 
 ## Now
 
-- v0.7.0 — Feedback agent + export: written per-team rationale, CSV export, per-team PDF export.
+- v1.0.0 — Milestone: usable, demo-ready MVP, fully free-tier.
 
 ## Done
+
+- v0.7.0 — Feedback agent + export: Groq-powered FeedbackAgent (agents/feedback/agent.py) generates per-team written feedback (strengths, weaknesses, one actionable suggestion, shortlist/reject verdict, tone matching the shortlist decision) from the four criterion scores + justifications; `feedback` table (migration 0007, one current row per submission); `POST|GET /api/submissions/{id}/feedback`; leaderboard CSV export (`GET /api/export/csv`) and per-team ReportLab PDF export (`GET /api/export/submissions/{id}/pdf`) - all reusing the shared `load_leaderboard()` path so exported numbers match GET /api/rankings. Merged fast-forward to main and tagged **v0.7.0** @ 7dbf476. Tests: backend 92 / agents 230, ruff clean. *(Live credential E2E + migration 0007 application still outstanding - see memory-bank/activeContext.)* (2026-08-25)
 
 - v0.6.0 — Weighted scoring + ranking: `rubric_config` table (migration 0006, hackathon-scoped, seeded equal weights); pure ranking engine in `agents/ranking/engine.py` (composite = Σ score×weight computed on the fly, deterministic tie-break composite→innovation→id with tie flags, top-N / min-score shortlists, unscored/partial excluded but counted); `GET /api/rankings` + `GET|PUT /api/rubrics/{hackathon_id}` with fraction-or-percent normalization and fallback-to-equal-weights transparency. LIVE-verified end-to-end (real Supabase+Groq): rubric probe 200 (migration present), innovation-heavy 15/20/25/40 rubric PUT persisted, two live-scored decks landed on the populated board with composites exactly equal to Σ score×weight (Practical 5.1 @ rank 4; Moonshot 4.4 @ rank 6; correct relative order), top_n=2 marked exactly 2 shortlisted, unknown hackathon → `rubric_source: "fallback"` + equal weights. Merged fast-forward to `main` and tagged **v0.6.0**. Tests: backend 58 / agents 195 / frontend 3, ruff clean. (2026-08-24)
 
@@ -20,12 +22,10 @@
 
 ## Next
 
-- v0.7.0 — Feedback agent + export: written per-team rationale, CSV export, per-team PDF export.
-- v1.0.0 — Milestone: usable, demo-ready MVP, fully free-tier.
+- v1.x — Team-facing polish: submission UX improvements, status tracking, email notifications, appeal flow.
 
 ## Later / Ideas
 
-- v1.x — Team-facing polish: submission UX improvements, status tracking, email notifications, appeal flow.
 - v2.x — Trust & safety layer: evaluator dashboard with override, audit trail, explainability (cited excerpts), local plagiarism/similarity detection, bias/anomaly flagging.
 - v2.5.0 (optional) — GitHub repo analysis as a bonus signal only, never a requirement.
 - v3.x — Scale features: multi-track rubric support, analytics dashboard, live pitch transcription, team-facing Q&A chatbot, external integrations, mobile evaluator app.
