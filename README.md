@@ -2,7 +2,7 @@
 
 **Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events.
 
-> **Status:** v0.6.0 — weighted scoring + ranking: configurable rubric, on-the-fly composite scores, ranked leaderboard with shortlist cutoffs. Core loop demoable end-to-end. See [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** v1.1.0 — Submission UX polish: editable rubric weights, batch scoring, top-N feedback generation, CSV/PDF export, and the shortlist-cutoff export fix. See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ## Features
 
