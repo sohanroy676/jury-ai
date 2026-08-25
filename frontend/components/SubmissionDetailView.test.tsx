@@ -147,4 +147,76 @@ describe("SubmissionDetailView", () => {
     expect(screen.getByText("No feedback generated yet.")).toBeTruthy();
     expect(screen.getByText("Download PDF report")).toBeTruthy();
   });
+
+  // --- v1.1.0 stage tracker + polling ---------------------------------------
+
+  it("renders the derived pipeline stages in the tracker", async () => {
+    await renderDetail();
+
+    const tracker = screen.getByLabelText("Submission progress");
+    expect(tracker.textContent).toContain("Submitted");
+    expect(tracker.textContent).toContain("Parsed");
+    expect(tracker.textContent).toContain("Scored");
+    // Only ONE criterion score exists in SUBMISSION -> not scored-complete.
+    expect(tracker.textContent).toContain("Awaiting result");
+  });
+
+  it("shows the verdict stage once feedback exists", async () => {
+    mockFetchFeedback.mockResolvedValue({
+      submission_id: "sub-1",
+      feedback: {
+        strengths: [],
+        weaknesses: [],
+        suggestion: "ok",
+        verdict: "reject",
+      },
+    });
+    await renderDetail();
+
+    const tracker = screen.getByLabelText("Submission progress");
+    expect(tracker.textContent).toContain("Rejected");
+    expect(tracker.textContent).not.toContain("Awaiting result");
+  });
+
+  it("polls every 10s until a verdict arrives, then stops", async () => {
+    vi.useFakeTimers();
+    try {
+      const { act } = await import("@testing-library/react");
+      render(<SubmissionDetailView submissionId="sub-1" />);
+
+      // Flush the initial load (two awaited fetches).
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(mockFetchSubmission).toHaveBeenCalledTimes(1);
+
+      // One polling interval fires a second load.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockFetchSubmission.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      // A verdict lands on the NEXT load -> polling tears down.
+      mockFetchFeedback.mockResolvedValue({
+        submission_id: "sub-1",
+        feedback: {
+          strengths: [],
+          weaknesses: [],
+          suggestion: "ok",
+          verdict: "shortlist",
+        },
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      const callsAfterVerdict = mockFetchSubmission.mock.calls.length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(mockFetchSubmission.mock.calls.length).toBe(callsAfterVerdict);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

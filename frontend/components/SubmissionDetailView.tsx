@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import ErrorBanner from "./ErrorBanner";
 import NavLinks from "./NavLinks";
+import StageTracker from "./StageTracker";
 import {
   ApiError,
+  CRITERIA,
   FeedbackRecord,
   SubmissionDetail,
   exportPdfUrl,
@@ -52,6 +54,29 @@ export default function SubmissionDetailView({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // v1.1.0 near-real-time status: poll while the submission has not yet
+  // reached a final verdict. A busy-guard prevents overlapping refreshes;
+  // the interval is cleaned up on unmount or once the verdict lands.
+  const pollBusy = useRef(false);
+  const quietLoad = useCallback(async () => {
+    if (pollBusy.current) return;
+    pollBusy.current = true;
+    try {
+      await load();
+    } finally {
+      pollBusy.current = false;
+    }
+  }, [load]);
+
+  const verdict = feedback?.verdict ?? null;
+  useEffect(() => {
+    if (verdict) return;
+    const id = window.setInterval(() => {
+      void quietLoad();
+    }, 10_000);
+    return () => window.clearInterval(id);
+  }, [quietLoad, verdict]);
 
   async function handleScore() {
     setScoring(true);
@@ -118,6 +143,19 @@ export default function SubmissionDetailView({
           {submission.status && ` · status: ${submission.status}`}
         </p>
       )}
+
+      <StageTracker
+        state={{
+          parsed: detail?.parsed != null,
+          scored:
+            Array.isArray(scores) &&
+            scores.length > 0 &&
+            CRITERIA.every((criterion) =>
+              scores.some((row) => row.criterion === criterion)
+            ),
+          verdict,
+        }}
+      />
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
       {notice && <p className="success">{notice}</p>}
