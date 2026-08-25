@@ -115,9 +115,27 @@ describe("export URL builders", () => {
     );
   });
 
+  it("carries an explicit top_n cutoff into the CSV URL", () => {
+    expect(exportCsvUrl("default", { topN: 3 })).toBe(
+      "http://localhost:8000/api/export/csv?hackathon_id=default&top_n=3"
+    );
+  });
+
+  it("carries min_score into the CSV URL when given", () => {
+    expect(exportCsvUrl("default", { minScore: 7.5 })).toBe(
+      "http://localhost:8000/api/export/csv?hackathon_id=default&min_score=7.5"
+    );
+  });
+
   it("encodes the submission id into the PDF URL path", () => {
     expect(exportPdfUrl("abc/def")).toBe(
-      "http://localhost:8000/api/export/submissions/abc%2Fdef/pdf"
+      "http://localhost:8000/api/export/submissions/abc%2Fdef/pdf?hackathon_id=default"
+    );
+  });
+
+  it("carries hackathon_id and top_n into the PDF URL", () => {
+    expect(exportPdfUrl("abc", { hackathonId: "sih", topN: 3 })).toBe(
+      "http://localhost:8000/api/export/submissions/abc/pdf?hackathon_id=sih&top_n=3"
     );
   });
 });

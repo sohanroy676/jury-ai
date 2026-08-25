@@ -251,7 +251,12 @@ export default function SubmissionDetailView({
         {detail?.parsed?.raw_text ? (
           <>
             <pre className="parsed-text">{detail.parsed.raw_text}</pre>
-            <a className="button-link" href={exportPdfUrl(submissionId)}>
+            <a
+              className="button-link"
+              href={exportPdfUrl(submissionId, {
+                topN: Number(topNInput) || undefined,
+              })}
+            >
               Download PDF report
             </a>
           </>

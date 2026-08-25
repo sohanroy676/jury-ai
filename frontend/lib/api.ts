@@ -261,10 +261,30 @@ export function scorePending(limit: number): Promise<BatchScoreResult> {
 
 // --- Export URLs (direct downloads, no JSON wrapper) --------------------
 
-export function exportCsvUrl(hackathonId: string): string {
-  return `${API_URL}/api/export/csv?hackathon_id=${encodeURIComponent(hackathonId)}`;
+export function exportCsvUrl(
+  hackathonId: string,
+  options: { topN?: number; minScore?: number } = {}
+): string {
+  // Manual query building (not URLSearchParams) so space encoding stays
+  // byte-compatible with the original encodeURIComponent contract.
+  const parts = [`hackathon_id=${encodeURIComponent(hackathonId)}`];
+  if (options.topN != null) parts.push(`top_n=${options.topN}`);
+  if (options.minScore != null) parts.push(`min_score=${options.minScore}`);
+  return `${API_URL}/api/export/csv?${parts.join("&")}`;
 }
 
-export function exportPdfUrl(submissionId: string): string {
-  return `${API_URL}/api/export/submissions/${encodeURIComponent(submissionId)}/pdf`;
+// The shortlist cutoff rides along so a downloaded report reflects the
+// same context the evaluator was looking at — without it the engine
+// treats "no cutoff" as nobody-shortlisted (v1.1 CSV bug).
+export function exportPdfUrl(
+  submissionId: string,
+  options: { hackathonId?: string; topN?: number } = {}
+): string {
+  const parts = [
+    `hackathon_id=${encodeURIComponent(options.hackathonId ?? "default")}`,
+  ];
+  if (options.topN != null) parts.push(`top_n=${options.topN}`);
+  return `${API_URL}/api/export/submissions/${encodeURIComponent(
+    submissionId
+  )}/pdf?${parts.join("&")}`;
 }
