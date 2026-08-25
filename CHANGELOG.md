@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [v1.1.0] - 2026-08-25
+
+### Bug Fixes
+
+* **portal:** Carry shortlist cutoff into export URLs ([f4885e6](https://github.com/sohanroy676/jury-ai/commit/f4885e6bdce26c6df850df85adb753af7efa76a7))
+
+### Features
+
+* **portal:** Pre-submit validation, replace flow, stage tracker ([9c47180](https://github.com/sohanroy676/jury-ai/commit/9c47180c1cdc0a9891544ca208d27e1ee9f27555))
+* **submissions:** Allow re-submission with archived history ([b1db34e](https://github.com/sohanroy676/jury-ai/commit/b1db34eaaf1ba1f005f8a7f9c209d6f1aa90c6a1))
+
 ## [v1.0.0] - 2026-08-25
 
 ### Bug Fixes
