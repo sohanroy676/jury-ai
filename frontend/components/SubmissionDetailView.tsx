@@ -40,7 +40,9 @@ export default function SubmissionDetailView({
       setFeedback(fb.feedback);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Unexpected error loading this submission."
+        err instanceof ApiError
+          ? err.message
+          : "Unexpected error loading this submission."
       );
     } finally {
       setLoading(false);
@@ -94,7 +96,13 @@ export default function SubmissionDetailView({
     }
   }
 
-  if (loading) return <main><NavLinks /><p>Loading submission…</p></main>;
+  if (loading)
+    return (
+      <main>
+        <NavLinks />
+        <p>Loading submission…</p>
+      </main>
+    );
 
   const submission = detail?.submission ?? null;
   const scores = detail?.scores ?? [];
@@ -216,4 +224,3 @@ export default function SubmissionDetailView({
     </main>
   );
 }
-

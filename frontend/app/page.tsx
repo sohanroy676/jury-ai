@@ -32,7 +32,6 @@ export default function Home() {
     void loadSubmissions();
   }, [loadSubmissions]);
 
-
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null;
     setError(null);

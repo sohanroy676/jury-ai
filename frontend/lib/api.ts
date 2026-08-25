@@ -5,7 +5,8 @@
 // unconfigured services all map to human-readable messages instead of
 // leaking internals.
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export const CRITERIA = [
   "problem_fit",
@@ -140,7 +141,9 @@ export function fetchSubmissions(): Promise<SubmissionRow[]> {
   return request<SubmissionRow[]>("/api/submissions");
 }
 
-export function fetchSubmission(submissionId: string): Promise<SubmissionDetail> {
+export function fetchSubmission(
+  submissionId: string
+): Promise<SubmissionDetail> {
   return request<SubmissionDetail>(
     `/api/submissions/${encodeURIComponent(submissionId)}`
   );
@@ -152,7 +155,8 @@ export async function fetchRankings(
 ): Promise<Leaderboard> {
   const params = new URLSearchParams({ hackathon_id: hackathonId });
   if (options.topN != null) params.set("top_n", String(options.topN));
-  if (options.minScore != null) params.set("min_score", String(options.minScore));
+  if (options.minScore != null)
+    params.set("min_score", String(options.minScore));
   return request<Leaderboard>(`/api/rankings?${params.toString()}`);
 }
 
@@ -203,7 +207,9 @@ export function triggerFeedback(
 export function fetchFeedback(
   submissionId: string
 ): Promise<{ submission_id: string; feedback: FeedbackRecord | null }> {
-  return request(`/api/submissions/${encodeURIComponent(submissionId)}/feedback`);
+  return request(
+    `/api/submissions/${encodeURIComponent(submissionId)}/feedback`
+  );
 }
 
 export function scorePending(limit: number): Promise<BatchScoreResult> {
@@ -222,4 +228,3 @@ export function exportCsvUrl(hackathonId: string): string {
 export function exportPdfUrl(submissionId: string): string {
   return `${API_URL}/api/export/submissions/${encodeURIComponent(submissionId)}/pdf`;
 }
-

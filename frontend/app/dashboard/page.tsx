@@ -34,8 +34,9 @@ export default function DashboardPage() {
   const [loadingBoard, setLoadingBoard] = useState(true);
   const [boardError, setBoardError] = useState<string | null>(null);
 
-  const [weightInputs, setWeightInputs] =
-    useState<WeightInputs>(INITIAL_WEIGHT_INPUTS);
+  const [weightInputs, setWeightInputs] = useState<WeightInputs>(
+    INITIAL_WEIGHT_INPUTS
+  );
   const [savingRubric, setSavingRubric] = useState(false);
 
   const [topNInput, setTopNInput] = useState("5");
@@ -53,7 +54,9 @@ export default function DashboardPage() {
       setBoard(data);
     } catch (err) {
       setBoardError(
-        err instanceof ApiError ? err.message : "Unexpected error loading rankings."
+        err instanceof ApiError
+          ? err.message
+          : "Unexpected error loading rankings."
       );
     } finally {
       setLoadingBoard(false);
@@ -220,7 +223,10 @@ export default function DashboardPage() {
                       <span className="badge badge-shortlist">shortlisted</span>
                     )}
                     {row.tied_on_composite && (
-                      <span className="badge badge-tie" title="Tied composite score">
+                      <span
+                        className="badge badge-tie"
+                        title="Tied composite score"
+                      >
                         tie
                       </span>
                     )}
@@ -238,9 +244,9 @@ export default function DashboardPage() {
       <section className="card">
         <h2>Score all pending</h2>
         <p className="hint">
-          Sequentially scores every submission that lacks a complete score
-          set. One submission at a time keeps the run inside the free LLM
-          rate limits.
+          Sequentially scores every submission that lacks a complete score set.
+          One submission at a time keeps the run inside the free LLM rate
+          limits.
         </p>
         <div className="inline-controls">
           <label htmlFor="batch-limit">Batch size (max 50)</label>
@@ -275,4 +281,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-

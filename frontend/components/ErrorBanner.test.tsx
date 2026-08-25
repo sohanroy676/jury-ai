@@ -11,9 +11,7 @@ describe("ErrorBanner", () => {
 
   it("shows the message with role=alert", () => {
     render(<ErrorBanner message="Something broke." />);
-    expect(screen.getByRole("alert").textContent).toContain(
-      "Something broke."
-    );
+    expect(screen.getByRole("alert").textContent).toContain("Something broke.");
   });
 
   it("calls onDismiss when the dismiss button is clicked", () => {

@@ -40,7 +40,11 @@ const SUBMISSION = {
     status: "parsed",
     uploaded_at: "2026-08-25",
   },
-  parsed: { raw_text: "We solve X with Y.", source_format: "pdf", sections: [] },
+  parsed: {
+    raw_text: "We solve X with Y.",
+    source_format: "pdf",
+    sections: [],
+  },
   scores: [
     {
       criterion: "problem_fit",
@@ -61,7 +65,9 @@ beforeEach(() => {
 
 async function renderDetail() {
   render(<SubmissionDetailView submissionId="sub-1" />);
-  await waitFor(() => expect(mockFetchSubmission).toHaveBeenCalledWith("sub-1"));
+  await waitFor(() =>
+    expect(mockFetchSubmission).toHaveBeenCalledWith("sub-1")
+  );
 }
 
 describe("SubmissionDetailView", () => {
@@ -73,9 +79,7 @@ describe("SubmissionDetailView", () => {
     // spaces (lowercase), matching the dashboard's label convention.
     expect(screen.getByText("problem fit")).toBeTruthy();
     expect(screen.getByText("9")).toBeTruthy();
-    expect(
-      screen.getByText("Clear problem statement.")
-    ).toBeTruthy();
+    expect(screen.getByText("Clear problem statement.")).toBeTruthy();
   });
 
   it("triggers scoring and refreshes the detail", async () => {
@@ -90,17 +94,13 @@ describe("SubmissionDetailView", () => {
       screen.getByRole("button", { name: /score this submission/i })
     );
 
-    await waitFor(() =>
-      expect(mockTriggerScore).toHaveBeenCalledWith("sub-1")
-    );
+    await waitFor(() => expect(mockTriggerScore).toHaveBeenCalledWith("sub-1"));
     // The component reloads after scoring.
     await waitFor(() =>
       expect(mockFetchSubmission.mock.calls.length).toBeGreaterThan(1)
     );
     expect(
-      screen.getByText((content) =>
-        content.includes("Scored by agent v1.0.0")
-      )
+      screen.getByText((content) => content.includes("Scored by agent v1.0.0"))
     ).toBeTruthy();
   });
 
@@ -116,9 +116,7 @@ describe("SubmissionDetailView", () => {
     fireEvent.change(screen.getByLabelText(/shortlist cutoff top n/i), {
       target: { value: "3" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: /generate feedback/i })
-    );
+    fireEvent.click(screen.getByRole("button", { name: /generate feedback/i }));
 
     await waitFor(() =>
       expect(mockTriggerFeedback).toHaveBeenCalledWith("sub-1", { topN: 3 })
@@ -136,9 +134,7 @@ describe("SubmissionDetailView", () => {
     );
     await renderDetail();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /generate feedback/i })
-    );
+    fireEvent.click(screen.getByRole("button", { name: /generate feedback/i }));
 
     await screen.findByRole("alert");
     expect(screen.getByRole("alert").textContent).toContain(
