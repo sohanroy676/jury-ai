@@ -185,7 +185,8 @@ npm run format      # format
 - **v0.4.0** ✅ Checkpoint — core loop (upload → parse → score) demoable end to end.
 - **v0.5.0** ✅ Multi-agent split — four specialist agents (problem fit, technical depth, feasibility, innovation) score in parallel; technical depth inferred from document content only.
 - **v0.6.0** ✅ Weighted scoring + ranking — configurable rubric (`PUT /api/rubrics/{hackathon_id}`), composite leaderboard (`GET /api/rankings`), top-N / min-score shortlist cutoffs, deterministic tie-breaking.
-- **v0.7.0+** Feedback agent + export, and the v1.0.0 MVP.
+- **v0.7.0** ✅ Feedback agent + export — written strengths/weaknesses/suggestion per team with shortlist/reject verdict; CSV leaderboard and ReportLab PDF report downloads.
+- **v1.0.0** ✅ Evaluator dashboard MVP — leaderboard with shortlist/tie badges, rubric % editor, batch score-pending scoring, submission detail view, typed frontend API client.
 
 See [ROADMAP.md](ROADMAP.md) and [docs/hackathon_evaluator_roadmap.md](docs/hackathon_evaluator_roadmap.md) for the full plan.
 
