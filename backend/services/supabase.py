@@ -409,3 +409,79 @@ def get_all_scores() -> list[dict]:
     result = client.table("scores").select("submission_id, criterion, score").execute()
 
     return list(result.data or [])
+
+
+# --- Feedback + export (v0.7.0) ---------------------------------------
+
+
+def upsert_feedback(
+    submission_id: str,
+    *,
+    strengths: list[str],
+    weaknesses: list[str],
+    suggestion: str,
+    verdict: str,
+    agent_version: str,
+) -> dict:
+    """Insert or update the CURRENT feedback row for a submission.
+
+    One row per submission (unique on ``submission_id``): regenerating
+    feedback overwrites so reads always reflect the latest scores.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+        strengths: Evidence-citing strength bullets.
+        weaknesses: Evidence-citing weakness bullets.
+        suggestion: The single actionable improvement.
+        verdict: ``shortlist`` or ``reject`` (validated upstream).
+        agent_version: Provenance string of the generating release.
+
+    Returns:
+        The stored row as a dict.
+    """
+    client = get_client()
+
+    result = (
+        client.table("feedback")
+        .upsert(
+            {
+                "submission_id": submission_id,
+                "strengths": strengths,
+                "weaknesses": weaknesses,
+                "suggestion": suggestion,
+                "verdict": verdict,
+                "agent_version": agent_version,
+            },
+            on_conflict="submission_id",
+        )
+        .execute()
+    )
+
+    return (result.data or [None])[0]
+
+
+def get_feedback(submission_id: str) -> dict | None:
+    """Fetch the feedback row for a submission.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+
+    Returns:
+        The feedback row as a dict, or ``None`` when none exists yet.
+    """
+    client = get_client()
+
+    # NOTE: limit(1) + explicit None, never .single() — PostgREST raises
+    # PGRST116 on zero rows with .single() (see get_parsed_submission).
+    result = (
+        client.table("feedback")
+        .select("*")
+        .eq("submission_id", submission_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data[0]

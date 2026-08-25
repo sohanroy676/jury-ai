@@ -33,7 +33,8 @@ Apply each migration file from `infra/migrations/` **in filename order**:
    - `0004_create_image_cache.sql` — creates the `image_cache` table *(v0.3.5)*
    - `0005_add_image_descriptions.sql` — adds the `image_descriptions` column to `parsed_submissions` *(v0.3.5)*
    - `0006_create_rubric_config.sql` — creates the `rubric_config` table + default equal weights *(v0.6.0)*
-3. After all migrations you should see the tables under **Table Editor**: `submissions`, `parsed_submissions`, `scores`, `image_cache`, `rubric_config`.
+   - `0007_create_feedback.sql` — creates the `feedback` table *(v0.7.0)*
+3. After all migrations you should see the tables under **Table Editor**: `submissions`, `parsed_submissions`, `scores`, `image_cache`, `rubric_config`, `feedback`.
 
 
 ## 4. Create the Storage bucket

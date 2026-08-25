@@ -31,29 +31,21 @@ class RubricUpdate(BaseModel):
     weights: dict[str, float]
 
 
-@router.get("/rankings")
-async def get_rankings(
+def load_leaderboard(
     hackathon_id: str = "default",
-    top_n: int | None = Query(default=None, gt=0),
-    min_score: float | None = Query(default=None, ge=0, le=10),
+    top_n: int | None = None,
+    min_score: float | None = None,
 ) -> dict:
-    """Return submissions ranked by weighted composite score.
+    """Fetch rubric + submissions + scores and build the ranked board.
 
-    Shortlisting is configured via ``top_n`` (first N after sorting) or
-    ``min_score`` (inclusive threshold) — never both.
+    Shared by GET /api/rankings and the v0.7.0 feedback/export routes so
+    every surface sees identical composites, ordering, and shortlist
+    semantics. Raises ``SupabaseNotConfiguredError`` when Supabase is
+    not configured (callers map that to HTTP 503).
     """
-    if top_n is not None and min_score is not None:
-        raise HTTPException(
-            status_code=422,
-            detail="Provide either top_n or min_score, not both.",
-        )
-
-    try:
-        configured = supabase.get_rubric(hackathon_id)
-        submissions = supabase.list_submissions(limit=MAX_RANKING_SUBMISSIONS)
-        score_rows = supabase.get_all_scores()
-    except supabase.SupabaseNotConfiguredError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    configured = supabase.get_rubric(hackathon_id)
+    submissions = supabase.list_submissions(limit=MAX_RANKING_SUBMISSIONS)
+    score_rows = supabase.get_all_scores()
 
     # A partially-configured rubric (e.g. hand-edited rows) falls back to
     # equal weights rather than producing misleading composites.
@@ -74,12 +66,36 @@ async def get_rankings(
         min_score=min_score,
     )
     return {
-        "hackathon_id": hackathon_id,
         "rubric": weights,
         "rubric_source": rubric_source,
         "shortlist": {"top_n": top_n, "min_score": min_score},
         **result,
     }
+
+
+@router.get("/rankings")
+async def get_rankings(
+    hackathon_id: str = "default",
+    top_n: int | None = Query(default=None, gt=0),
+    min_score: float | None = Query(default=None, ge=0, le=10),
+) -> dict:
+    """Return submissions ranked by weighted composite score.
+
+    Shortlisting is configured via ``top_n`` (first N after sorting) or
+    ``min_score`` (inclusive threshold) — never both.
+    """
+    if top_n is not None and min_score is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="Provide either top_n or min_score, not both.",
+        )
+
+    try:
+        body = load_leaderboard(hackathon_id, top_n=top_n, min_score=min_score)
+    except supabase.SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return {"hackathon_id": hackathon_id, **body}
 
 
 @router.get("/rubrics/{hackathon_id}")
