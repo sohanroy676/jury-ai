@@ -4,7 +4,7 @@
 
 ## Now
 
-- v1.0.0 — Milestone: usable, demo-ready MVP, fully free-tier.
+- v1.0.0 — Milestone: usable, demo-ready MVP, fully free-tier. *(IMPLEMENTED on `feature/v1.0.0-mvp-dashboard`: evaluator dashboard UI, batch score-pending endpoint, typed frontend API client, backend+frontend test suites — NOT yet verified: full pytest/vitest/lint runs pending (Node missing for frontend side), version bump to 1.0.0 + CHANGELOG regen + merge still to come. See memory-bank/activeContext for exact state.)*
 
 ## Done
 

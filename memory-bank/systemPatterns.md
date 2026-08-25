@@ -60,6 +60,12 @@
 - **PDF reports render & escape everything** (`backend/services/pdf.py`, ReportLab): LLM/user text (justifications, feedback bullets) passes through `xml.sax.saxutils.escape` before Paragraph markup; missing feedback renders a placeholder note rather than failing the export.
 - **Additive PDF health is regression-tested by building real PDFs in-memory** (assert `%PDF` magic + `%%EOF` trailer) - keeps the free-tier ReportLab path safe without a paid API.
 
+### v1.0.0 additions
+
+- **Batch scoring reuses the exact single-submission path.** `_score_one_submission()` (`backend/routes/scoring.py`) owns the fetch → build_scoring_text → score → insert flow; both `POST /api/submissions/{id}/score` and `POST /api/submissions/score-pending` delegate to it, and the batch catches `HTTPException` per item — the two endpoints can never diverge. "Pending" = lacking ALL four criterion scores (same completeness rule as the ranking engine), so interrupted runs self-heal while complete sets are never re-scored. Submissions process ONE at a time (the four agents stay parallel within one submission) to respect Groq free-tier RPM/TPD; `limit` (Query: default 10, gt=0, le=50) caps each call and the response reports `remaining`.
+- **The frontend talks to the backend exclusively through `frontend/lib/api.ts`.** Typed response interfaces mirror the routes; every call funnels through `request<T>()`, converting network failures and non-2xx into `ApiError(status, humanMessage)` — 429 maps to a rate-limit explainer, otherwise the backend's own `detail` string passes through. Pages/components must not call `fetch` directly; keeps the pre-deploy "no leaked internals" rule enforceable in one place.
+- **Dynamic app-router pages stay thin server wrappers.** `app/submissions/[id]/page.tsx` awaits the Next 15 `params` Promise and renders `<SubmissionDetailView submissionId={id} />`; all logic lives in the client component so Vitest exercises props directly without router mocks.
+
 ## Things to avoid
 
 - **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.

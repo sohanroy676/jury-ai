@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import Home from "./page";
+
+// NavLinks imports next/link, which jsdom does not support; the link
+// bar is not the subject of these upload-form tests.
+vi.mock("../components/NavLinks", () => ({ default: () => null }));
 
 describe("Home", () => {
   it("renders the submission portal heading", () => {

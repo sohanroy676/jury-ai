@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "JuryAI — Hackathon Submission Portal",
-  description: "Upload your hackathon submission (PDF or PPTX).",
+  title: "JuryAI — Hackathon Evaluator",
+  description:
+    "Upload and evaluate hackathon submissions (PDF/PPTX) with AI agents.",
 };
 
 export default function RootLayout({

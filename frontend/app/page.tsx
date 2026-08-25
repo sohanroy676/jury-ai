@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import NavLinks from "../components/NavLinks";
+import { fetchSubmissions, SubmissionRow } from "../lib/api";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".pptx"];
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -11,6 +14,24 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [submissions, setSubmissions] = useState<SubmissionRow[] | null>(null);
+
+  const loadSubmissions = useCallback(async () => {
+    try {
+      setSubmissions(await fetchSubmissions());
+    } catch {
+      // The portal stays usable without the list (e.g. backend down for
+      // scoring but up for uploads is unlikely; a silent empty list beats
+      // blocking the upload form).
+      setSubmissions(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSubmissions();
+  }, [loadSubmissions]);
+
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null;
@@ -71,6 +92,7 @@ export default function Home() {
       );
       setTeamName("");
       setFile(null);
+      void loadSubmissions();
     } catch {
       setError("Network error — could not reach the backend.");
     } finally {
@@ -80,6 +102,7 @@ export default function Home() {
 
   return (
     <main>
+      <NavLinks />
       <h1>JuryAI Submission Portal</h1>
       <p className="subtitle">
         Upload your hackathon submission. Only PDF and PPTX files are accepted.
@@ -116,6 +139,31 @@ export default function Home() {
           {submitting ? "Uploading…" : "Submit"}
         </button>
       </form>
+
+      <section className="card">
+        <h2>Recent submissions</h2>
+        {submissions === null ? (
+          <p className="hint">
+            Could not load the submissions list (is the backend running?).
+          </p>
+        ) : submissions.length === 0 ? (
+          <p className="hint">No submissions yet — be the first to upload.</p>
+        ) : (
+          <ul className="submission-list">
+            {submissions.map((s) => (
+              <li key={s.id}>
+                <a href={`/submissions/${s.id}`}>{s.team_name}</a>
+                <span className="meta">
+                  {" "}
+                  {s.file_type?.toUpperCase() || ""}
+                  {s.status ? ` · ${s.status}` : ""}
+                  {s.uploaded_at ? ` · ${s.uploaded_at}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

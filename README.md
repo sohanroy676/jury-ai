@@ -7,8 +7,9 @@
 ## Features
 
 - 📤 **Upload portal** — teams submit a PDF or PPTX through a Next.js frontend.
+- 📊 **Evaluator dashboard** — ranked leaderboard with shortlist badges, editable rubric weights, batch scoring of pending submissions, per-team detail pages with generated feedback, and CSV/PDF export.
 - 🗄️ **Supabase-backed** — files go to Supabase Storage, metadata to Supabase Postgres.
-- 🧩 **Extensible agent pipeline** — parsing, scoring (4 agents), ranking, and feedback agents land in later versions.
+- 🧩 **Extensible agent pipeline** — parsing, scoring (4 agents), ranking, and feedback agents.
 - 💸 **100% free-tier** — no paid services, ever.
 
 ## Tech Stack
@@ -123,6 +124,34 @@ curl -s "http://localhost:8000/api/rankings?hackathon_id=default&top_n=5"
 ```
 
 `GET /api/submissions` lists every upload, newest first. Interactive docs for all endpoints live at <http://localhost:8000/docs>.
+
+### Batch scoring (v1.0.0)
+
+Score every submission that lacks a complete score set in one call, one
+submission at a time (stays inside Groq's free-tier rate limits). `limit`
+caps how many are attempted (default 10, max 50); the response reports
+per-item outcomes and how many remain.
+
+```bash
+# Score the 10 newest pending submissions
+curl -s -X POST "http://localhost:8000/api/submissions/score-pending?limit=10"
+# -> {"scored": 10, "failed": 0, "remaining": 12, "results": [...]}
+```
+
+## Demo the Evaluator Dashboard (browser)
+
+With the backend and frontend running (`.env` configured with Supabase +
+`GROQ_API_KEY`):
+
+1. Open <http://localhost:3000> and upload a few PDF/PPTX submissions.
+2. Open the **Evaluator dashboard** (link in the nav bar).
+3. In **Score all pending**, set a batch size and click **Start batch scoring** —
+   the leaderboard below populates as submissions get scored.
+4. Tune **Rubric weights (%)** and save — the leaderboard recomputes immediately.
+5. Export the board via **Export CSV**.
+6. Click a team name to open its detail page: read criterion scores and
+   justifications, generate written feedback (verdict follows the shortlist
+   cutoff `top N` you set), and **Download PDF report**.
 
 ## Testing
 
