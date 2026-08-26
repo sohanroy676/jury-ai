@@ -14,9 +14,22 @@ from fastapi.testclient import TestClient
 
 from agents.scoring.scorer import AGENT_VERSION, CriterionScore, ScoringResult
 from backend.main import app
+from backend.services import email as email_service
 from backend.services import supabase
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _mock_mailer(monkeypatch):
+    """Route tests must never touch real mail transports (the developer's
+    .env may hold live SMTP credentials)."""
+    monkeypatch.setattr(
+        email_service,
+        "send_submission_confirmation",
+        lambda **kwargs: email_service.EmailResult("sent", "sent"),
+    )
+
 
 MARKER = "QuantumQuokka core-loop checkpoint proposal"
 CRITERIA = ["problem_fit", "technical_depth", "feasibility", "innovation"]
@@ -39,13 +52,16 @@ def store(monkeypatch):
     def fake_upload(file_bytes, file_name, file_type):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
-    def fake_insert_submission(team_name, file_url, file_type, supersedes_team=False):
+    def fake_insert_submission(
+        team_name, file_url, file_type, team_email=None, supersedes_team=False
+    ):
         row = {
             "id": str(uuid.uuid4()),
             "team_name": team_name,
             "file_url": file_url,
             "file_type": file_type,
             "status": "submitted",
+            "team_email": team_email,
         }
         state["submissions"][row["id"]] = row
         return dict(row)

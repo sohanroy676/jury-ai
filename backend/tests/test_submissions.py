@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from pptx import Presentation
 
 from backend.main import app
+from backend.services import email as email_service
 from backend.services import supabase
 
 client = TestClient(app)
@@ -16,8 +17,26 @@ client = TestClient(app)
 # - _active_by_team maps lowercased team names to their ACTIVE row;
 # - _insert_calls records every insert_submission invocation so tests
 #   can assert the archive flag that reached the service layer.
+# v1.2.0 adds _mailer_calls for confirmation-email dispatches.
 _active_by_team: dict[str, dict] = {}
 _insert_calls: list[dict] = []
+_mailer_calls: list[dict] = []
+
+
+@pytest.fixture(autouse=True)
+def _mock_mailer(monkeypatch):
+    """Route tests must never touch a real mail transport — the developer's
+    .env may hold live SMTP credentials. Records dispatch kwargs; individual
+    tests re-patch send_submission_confirmation for skip/fail outcomes."""
+    _mailer_calls.clear()
+
+    def fake_confirmation(**kwargs):
+        _mailer_calls.append(kwargs)
+        return email_service.EmailResult("sent", "sent")
+
+    monkeypatch.setattr(
+        email_service, "send_submission_confirmation", fake_confirmation
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -31,14 +50,20 @@ def _mock_supabase(monkeypatch):
     insert_calls.clear()
     _active_by_team.clear()
 
-    def fake_insert(team_name, file_url, file_type, supersedes_team=False):
-        insert_calls.append({"supersedes_team": supersedes_team})
+    def fake_insert(
+        team_name, file_url, file_type, team_email=None, supersedes_team=False
+    ):
+        insert_calls.append(
+            {"team_email": team_email, "supersedes_team": supersedes_team}
+        )
         return {
             "id": "00000000-0000-0000-0000-000000000001",
             "team_name": team_name,
             "file_url": file_url,
             "file_type": file_type,
             "status": "submitted",
+            "team_email": team_email,
+            "uploaded_at": "2026-08-26T10:00:00+00:00",
         }
 
     def fake_insert_parsed(
@@ -240,6 +265,121 @@ def test_upload_rejects_corrupt_pdf():
     )
     assert resp.status_code == 422
     assert "Could not parse file" in resp.json()["detail"]
+
+
+# --- Confirmation notifications (v1.2.0) -----------------------------------------
+
+
+def test_upload_sends_confirmation_email():
+    """A valid upload with an address dispatches exactly one confirmation."""
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Team Alpha", "team_email": "alpha@example.com"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["team_email"] == "alpha@example.com"
+    assert body["notification"]["confirmation_email"]["status"] == "sent"
+
+    assert len(_mailer_calls) == 1
+    assert _mailer_calls[0]["team_email"] == "alpha@example.com"
+    assert _mailer_calls[0]["team_name"] == "Team Alpha"
+    assert _mailer_calls[0]["file_type"] == "pdf"
+
+
+def test_upload_without_email_passes_blank_address_to_mailer():
+    """Blank input is optional at the API level and travels as ''."""
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "No Mail"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 201
+    assert len(_mailer_calls) == 1
+    assert _mailer_calls[0]["team_email"] == ""
+
+
+def test_upload_surfaces_skipped_notification(monkeypatch):
+    """The response reports the service's skip outcome verbatim."""
+
+    def skipping(**kwargs):
+        return email_service.EmailResult("skipped", "no_valid_recipient", "no addr")
+
+    monkeypatch.setattr(email_service, "send_submission_confirmation", skipping)
+
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Legacy Team"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 201
+    notif = resp.json()["notification"]["confirmation_email"]
+    assert notif["status"] == "skipped"
+    assert notif["reason"] == "no_valid_recipient"
+
+
+def test_upload_rejects_malformed_email_before_persisting():
+    """A malformed address is a 400 BEFORE any row or mail exists."""
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Typo Team", "team_email": "not-an-email"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 400
+    assert "email" in resp.json()["detail"].lower()
+    assert _insert_calls == []
+    assert _mailer_calls == []
+
+
+def test_parse_failure_never_emails():
+    """A corrupt deck must not produce a confirmation (422 path)."""
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Corrupt Team"},
+        files={"file": ("broken.pdf", b"not a real pdf", "application/pdf")},
+    )
+    assert resp.status_code == 422
+    assert _mailer_calls == []
+
+
+def test_conflict_gate_never_emails():
+    """The 409 duplicate gate fires long before any notification."""
+    _active_by_team["team alpha"] = {
+        "id": "00000000-0000-0000-0000-0000000000aa",
+        "team_name": "Team Alpha",
+        "uploaded_at": "2026-08-25T10:00:00+00:00",
+    }
+    resp = client.post(
+        "/api/submissions",
+        data={"team_name": "Team Alpha"},
+        files={"file": ("proposal.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 409
+    assert _mailer_calls == []
+
+
+def test_replace_flow_confirms_the_new_active_row():
+    """Re-submission archives the old row AND confirms the new one."""
+    _active_by_team["team alpha"] = {
+        "id": "00000000-0000-0000-0000-0000000000aa",
+        "team_name": "Team Alpha",
+        "uploaded_at": "2026-08-25T10:00:00+00:00",
+    }
+    resp = client.post(
+        "/api/submissions",
+        data={
+            "team_name": "Team Alpha",
+            "replace_existing": "true",
+            "team_email": "alpha-new@example.com",
+        },
+        files={"file": ("proposal-v2.pdf", _pdf_bytes(), "application/pdf")},
+    )
+    assert resp.status_code == 201
+    assert _insert_calls[0]["supersedes_team"] is True
+    assert _insert_calls[0]["team_email"] == "alpha-new@example.com"
+    assert len(_mailer_calls) == 1
+    assert _mailer_calls[0]["team_email"] == "alpha-new@example.com"
 
 
 def test_health():

@@ -14,9 +14,28 @@ from fastapi.testclient import TestClient
 import version
 from agents.feedback import FeedbackResult
 from backend.main import app
+from backend.services import email as email_service
 from backend.services import supabase
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def mailer(monkeypatch):
+    """Route tests must never touch real mail transports (the developer's
+    .env may hold live credentials). Mirrors the service's sent-vs-skip
+    contract so response surfacing is exercised honestly."""
+    calls: list[dict] = []
+
+    def fake_results(**kwargs):
+        calls.append(kwargs)
+        if not str(kwargs.get("team_email") or "").strip():
+            return email_service.EmailResult("skipped", "no_valid_recipient")
+        return email_service.EmailResult("sent", "sent")
+
+    monkeypatch.setattr(email_service, "send_results_notification", fake_results)
+    return calls
+
 
 CRITERIA = ["problem_fit", "technical_depth", "feasibility", "innovation"]
 
@@ -69,8 +88,8 @@ class FakeStore:
         return dict(row) if row else None
 
     # Test-data helpers.
-    def add_submission(self, sid: str, team: str) -> None:
-        self.submissions.append({"id": sid, "team_name": team})
+    def add_submission(self, sid: str, team: str, email: str | None = None) -> None:
+        self.submissions.append({"id": sid, "team_name": team, "team_email": email})
 
     def add_scores(
         self, sid: str, criteria: list[str] | None = None, **by_criterion
@@ -284,3 +303,84 @@ def test_get_feedback_supabase_down_503(store, monkeypatch):
     monkeypatch.setattr(supabase, "get_feedback", broken)
     resp = client.get("/api/submissions/id-a/feedback")
     assert resp.status_code == 503
+
+
+# --- Results notifications (v1.2.0) -----------------------------------------------
+
+
+def _seed_two_teams(store):
+    store.add_submission("id-top", "Alpha", email="alpha@example.com")
+    store.add_submission("id-low", "Bravo", email="bravo@example.com")
+    store.add_scores("id-top", problem_fit=9)
+    store.add_scores("id-low", problem_fit=3)
+
+
+def test_post_feedback_sends_results_email(store, agent_calls, mailer):
+    """Successful generation dispatches the full result context."""
+    _seed_two_teams(store)
+
+    resp = client.post("/api/submissions/id-top/feedback?top_n=1")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["notification"]["results_email"]["status"] == "sent"
+
+    assert len(mailer) == 1
+    sent = mailer[0]
+    assert sent["team_name"] == "Alpha"
+    assert sent["team_email"] == "alpha@example.com"
+    assert sent["shortlisted"] is True
+    assert sent["rank"] == 1
+    assert [s["criterion"] for s in sent["scores"]] == CRITERIA
+    assert all(s["justification"] for s in sent["scores"])
+    assert sent["feedback"]["verdict"] == "shortlist"
+    assert sent["feedback"]["suggestion"]
+    assert sent["composite_score"] > 0
+
+
+def test_post_feedback_without_address_reports_skip(store, agent_calls, mailer):
+    """Legacy rows without an address still succeed; skip is surfaced."""
+    store.add_submission("id-a", "Alpha")  # no email
+    store.add_scores("id-a")
+
+    resp = client.post("/api/submissions/id-a/feedback")
+
+    assert resp.status_code == 200
+    notif = resp.json()["notification"]["results_email"]
+    assert notif["status"] == "skipped"
+    assert notif["reason"] == "no_valid_recipient"
+    assert mailer[0]["team_email"] == ""
+
+
+def test_post_feedback_agent_failure_never_emails(store, mailer, monkeypatch):
+    """Groq-side failures abort before any notification exists."""
+    store.add_submission("id-a", "Alpha", email="alpha@example.com")
+    store.add_scores("id-a")
+
+    async def boom(**kwargs):
+        raise RuntimeError("invalid JSON forever")
+
+    monkeypatch.setattr("backend.routes.feedback.generate_feedback", boom)
+    resp = client.post("/api/submissions/id-a/feedback")
+
+    assert resp.status_code == 500
+    assert mailer == []
+
+
+def test_post_feedback_regeneration_reemails_current_result(store, agent_calls, mailer):
+    """Each successful generation is the current official result —
+    regeneration deliberately re-notifies (documented semantics)."""
+    _seed_two_teams(store)
+
+    client.post("/api/submissions/id-top/feedback?top_n=1")
+    client.post("/api/submissions/id-top/feedback?top_n=1")
+
+    assert len(mailer) == 2
+    assert all(call["team_email"] == "alpha@example.com" for call in mailer)
+
+
+def test_post_feedback_unscored_never_emails(store, agent_calls, mailer):
+    """The 409 incomplete-score gate precedes notification entirely."""
+    store.add_submission("id-x", "XRay", email="x@example.com")
+    client.post("/api/submissions/id-x/feedback")
+    assert mailer == []

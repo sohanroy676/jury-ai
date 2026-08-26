@@ -10,9 +10,21 @@ from PIL import Image
 
 from agents.scoring.scorer import CriterionScore, ScoringResult, build_scoring_text
 from backend.main import app
+from backend.services import email as email_service
 from backend.services import supabase
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _mock_mailer(monkeypatch):
+    """Route tests must never touch real mail transports (the developer's
+    .env may hold live SMTP credentials)."""
+    monkeypatch.setattr(
+        email_service,
+        "send_submission_confirmation",
+        lambda **kwargs: email_service.EmailResult("sent", "sent"),
+    )
 
 
 # --- Fixture helpers ---------------------------------------------------------
@@ -63,13 +75,16 @@ def _mock_supabase(monkeypatch):
     def fake_upload(file_bytes, file_name, file_type):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
-    def fake_insert(team_name, file_url, file_type, supersedes_team=False):
+    def fake_insert(
+        team_name, file_url, file_type, team_email=None, supersedes_team=False
+    ):
         return {
             "id": "00000000-0000-0000-0000-000000000001",
             "team_name": team_name,
             "file_url": file_url,
             "file_type": file_type,
             "status": "submitted",
+            "team_email": team_email,
         }
 
     captured: dict = {}

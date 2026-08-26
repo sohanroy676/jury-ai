@@ -1,5 +1,6 @@
 """API routes for submission uploads."""
 
+import asyncio
 import logging
 import os
 import uuid
@@ -10,6 +11,7 @@ from agents.parsing.extractor import ParsingError, extract_text
 from agents.parsing.images.extract import extract_images
 from agents.parsing.images.pipeline import process_submission_images
 from backend.config import settings
+from backend.services import email as email_service
 from backend.services import supabase
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,7 @@ async def create_submission(
     team_name: str = Form(...),
     file: UploadFile = File(...),
     replace_existing: bool = Form(False),
+    team_email: str = Form(""),
 ) -> dict:
     """Upload a submission file, parse it, and store both.
 
@@ -40,6 +43,10 @@ async def create_submission(
     in which case the previous active row is archived (``superseded_at``
     stamped, history preserved) and this upload becomes the team's active
     submission.
+
+    Notifications (v1.2.0): ``team_email`` opts the team into a
+    confirmation email now and results-with-feedback later. Optional at
+    the API level (blank skips notifications); the portal requires it.
     """
     # --- Validate file type by extension (never trust the client).
     file_ext = os.path.splitext(file.filename or "")[1].lower()
@@ -53,6 +60,15 @@ async def create_submission(
     # --- Validate team name is non-empty.
     if not team_name.strip():
         raise HTTPException(status_code=400, detail="Team name is required.")
+
+    # --- Validate the contact email when provided (v1.2.0). Malformed
+    #     input is rejected BEFORE anything is persisted or emailed.
+    team_email = team_email.strip()
+    if team_email and not email_service.is_valid_email(team_email):
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide a valid contact email address.",
+        )
 
     # --- Re-submission gate (v1.1.0): a duplicate upload under the same
     #     team name must be an explicit replace, so the portal can show a
@@ -124,7 +140,11 @@ async def create_submission(
     #     previous active row first when this is an explicit re-submission).
     try:
         row = supabase.insert_submission(
-            team_name, file_url, file_type, supersedes_team=bool(existing_active)
+            team_name,
+            file_url,
+            file_type,
+            team_email=team_email,
+            supersedes_team=bool(existing_active),
         )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -141,7 +161,32 @@ async def create_submission(
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    return row
+    # --- Confirmation email (v1.2.0): fires only after the whole
+    #     parse-complete path succeeded. Degrades gracefully — a mail
+    #     problem must never fail an upload (image-stage philosophy).
+    notification = await asyncio.to_thread(
+        email_service.send_submission_confirmation,
+        team_name=row.get("team_name") or team_name.strip(),
+        team_email=row.get("team_email") or team_email,
+        file_type=file_type,
+        uploaded_at=row.get("uploaded_at", ""),
+    )
+    if notification.status != "sent":
+        logger.warning(
+            "Confirmation email %s (%s)",
+            notification.status,
+            notification.detail or notification.reason,
+        )
+
+    return {
+        **row,
+        "notification": {
+            "confirmation_email": {
+                "status": notification.status,
+                "reason": notification.reason,
+            }
+        },
+    }
 
 
 @router.get("/submissions")

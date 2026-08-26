@@ -74,6 +74,7 @@ def insert_submission(
     team_name: str,
     file_url: str,
     file_type: str,
+    team_email: str | None = None,
     supersedes_team: bool = False,
 ) -> dict:
     """Insert a submission row into Supabase Postgres.
@@ -82,6 +83,8 @@ def insert_submission(
         team_name: The team's name.
         file_url: Public URL of the uploaded file.
         file_type: One of ``pdf`` or ``pptx``.
+        team_email: Contact address for notifications (v1.2.0). Stored as
+            NULL when blank so legacy rows and optional input stay valid.
         supersedes_team: When True (v1.1.0 re-submission), first archive
             the team's current active submission by stamping
             ``superseded_at`` so history is preserved while only the new
@@ -99,7 +102,16 @@ def insert_submission(
 
     row = (
         client.table("submissions")
-        .insert({"team_name": team_name, "file_url": file_url, "file_type": file_type})
+        .insert(
+            {
+                "team_name": team_name,
+                "file_url": file_url,
+                "file_type": file_type,
+                # v1.2.0: contact email for notifications. Blank input is
+                # stored as NULL (the DB CHECK allows NULL, not '').
+                "team_email": (team_email or None),
+            }
+        )
         .execute()
         .data[0]
     )

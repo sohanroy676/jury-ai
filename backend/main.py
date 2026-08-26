@@ -1,20 +1,11 @@
 """JuryAI backend — FastAPI application entry point."""
 
-import os
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.config import settings
 from backend.routes import export, feedback, ranking, scoring, submissions
 from version import APP_VERSION
-
-# Allowed frontend origins (comma-separated in FRONTEND_URL env var).
-# Defaults to the local dev frontend.
-_frontend_origins = [
-    origin.strip()
-    for origin in os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")
-    if origin.strip()
-]
 
 app = FastAPI(
     title="JuryAI API",
@@ -24,7 +15,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_frontend_origins,
+    # Frontend origins come from FRONTEND_URL (comma-separated) via Settings,
+    # which also feeds notification-email links (v1.2.0).
+    allow_origins=settings.frontend_urls,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "OPTIONS"],
     allow_headers=["Content-Type"],

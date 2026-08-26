@@ -59,6 +59,26 @@ class Settings:
         # Images smaller than this on either side are skipped as icons.
         self.min_image_dimension: int = int(os.getenv("MIN_IMAGE_DIMENSION", "64"))
 
+        # --- Notifications (v1.2.0) --------------------------------------
+        # Transport for team-facing emails: "smtp" (Gmail free tier via
+        # App Password, default) or "resend" (Resend REST free tier).
+        self.email_provider: str = os.getenv("EMAIL_PROVIDER", "smtp")
+        self.email_from: str = os.getenv("EMAIL_FROM", "")
+        self.smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_user: str = os.getenv("SMTP_USER", "")
+        self.smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+        # Resend talks REST over the already-pinned httpx — the official
+        # SDK needs httpx>=0.28 which conflicts with supabase's pin.
+        self.resend_api_key: str = os.getenv("RESEND_API_KEY", "")
+        # Frontend origins (comma-separated, mirrors FRONTEND_URL). The
+        # first entry is the link base for notification emails.
+        self.frontend_urls: list[str] = [
+            origin.strip()
+            for origin in os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")
+            if origin.strip()
+        ]
+
     @property
     def is_configured(self) -> bool:
         """True when the required Supabase credentials are present."""
@@ -77,6 +97,32 @@ class Settings:
     def is_gemini_configured(self) -> bool:
         """True when the Gemini API key is present (vision option)."""
         return bool(self.gemini_api_key)
+
+    @property
+    def frontend_url(self) -> str:
+        """Primary frontend origin — link base for notification emails."""
+        return self.frontend_urls[0] if self.frontend_urls else ""
+
+    @property
+    def is_smtp_configured(self) -> bool:
+        """True when the SMTP transport has everything it needs."""
+        return bool(
+            self.email_from and self.smtp_host and self.smtp_user and self.smtp_password
+        )
+
+    @property
+    def is_resend_configured(self) -> bool:
+        """True when the Resend transport has everything it needs."""
+        return bool(self.email_from and self.resend_api_key)
+
+    @property
+    def is_email_configured(self) -> bool:
+        """True when credentials for the selected EMAIL_PROVIDER are complete."""
+        if self.email_provider == "smtp":
+            return self.is_smtp_configured
+        if self.email_provider == "resend":
+            return self.is_resend_configured
+        return False
 
 
 settings = Settings()

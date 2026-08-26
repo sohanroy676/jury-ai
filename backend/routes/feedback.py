@@ -7,13 +7,19 @@ endpoints reuse the exact ranking engine used by GET /api/rankings so
 composites, ranks, and shortlist flags always agree across surfaces.
 """
 
+import asyncio
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from groq import GroqError
 
 from agents.feedback import generate_feedback
 from agents.scoring.base import CRITERIA_NAMES
 from backend.routes.ranking import load_leaderboard
+from backend.services import email as email_service
 from backend.services import supabase
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["feedback"])
 
@@ -95,7 +101,7 @@ async def generate_submission_feedback(
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    return {
+    response = {
         "submission_id": submission_id,
         "agent_version": result.agent_version,
         "rubric_source": board["rubric_source"],
@@ -114,6 +120,48 @@ async def generate_submission_feedback(
             "verdict": result.verdict,
         },
     }
+
+    # --- Results email (v1.2.0): every successful generation produces the
+    #     team's current official result, so regeneration re-notifies.
+    #     Degrades gracefully like the confirmation path — never 500s.
+    notification = await asyncio.to_thread(
+        email_service.send_results_notification,
+        team_name=entry["team_name"],
+        team_email=(submission.get("team_email") or ""),
+        submission_id=submission_id,
+        composite_score=entry["composite_score"],
+        rank=entry["rank"],
+        scored_count=board["scored_count"],
+        shortlisted=bool(entry["shortlisted"]),
+        scores=[
+            {
+                "criterion": score_row["criterion"],
+                "score": score_row["score"],
+                "justification": score_row["justification"],
+            }
+            for score_row in ordered_scores
+        ],
+        feedback={
+            "strengths": result.strengths,
+            "weaknesses": result.weaknesses,
+            "suggestion": result.suggestion,
+            "verdict": result.verdict,
+        },
+    )
+    if notification.status != "sent":
+        logger.warning(
+            "Results email %s (%s)",
+            notification.status,
+            notification.detail or notification.reason,
+        )
+    response["notification"] = {
+        "results_email": {
+            "status": notification.status,
+            "reason": notification.reason,
+        }
+    }
+
+    return response
 
 
 @router.get("/submissions/{submission_id}/feedback")
