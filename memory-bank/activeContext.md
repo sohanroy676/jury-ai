@@ -4,7 +4,11 @@
 
 ## Current focus
 
-**v1.2.0 CODE-COMPLETE incl. BATCH FEEDBACK (2026-08-26); branches `feature/v1.2.0-notifications` ← stacked `feature/v1.2.0-batch-feedback`.** All suites green: pytest **392**, Vitest **45**, ruff + ESLint clean, version 1.2.0. Delivered: team_email collection (migration 0009 + portal field), confirmation email after parse-complete upload, results-with-feedback email on feedback generation, dual transport behind `EMAIL_PROVIDER=smtp|resend` (`services/email.py`, ADR-0004), AND one-click **batch feedback**: `POST /api/submissions/feedback-pending` + dashboard control generates/sends for every scored-but-unfeedbacked team (best composite first, shared single-team path). Deadline-reminder sub-feature DEFERRED (blocked on roster/deadline model — ROADMAP Next). **Next session steps:** (1) commit any remaining tree state per /commit incl. CHANGELOG regen; (2) USER applies migrations 0008+0009 if not yet applied and fills EMAIL_* in `.env`; (3) LIVE verification — upload → confirmation < 1 min; batch score → batch feedback → statuses flip + emails render desktop+mobile; optionally EMAIL_PROVIDER=resend repeat; (4) merge BOTH branches fast-forward to main, tag `v1.2.0`, push (with approval). **Post-batch-feedback fix** on stacked branch `fix/results-email-explicit-outcome` (commit 9eb27bf): reject-path results emails now state the outcome explicitly ("Result: your submission was not shortlisted." + softening note, text+HTML); outcome-property regression test replaces the wording-assertion that had pinned the bug.
+**v1.2.0 LIVE-VERIFIED & RELEASING (2026-08-26).** User confirmed: migrations applied, SMTP configured, real emails received — including the fixed explicit reject/shortlist wording. Full suites green on the release tree (pytest **392**, Vitest **45**). Branch stack `feature/v1.2.0-notifications` ← `feature/v1.2.0-batch-feedback` ← `fix/results-email-explicit-outcome` fast-forwards to `main`; tag `v1.2.0`; push approved by user this session. Delivered in v1.2.0: team_email collection (migration 0009 + portal field), confirmation + results emails over `EMAIL_PROVIDER=smtp|resend` (`services/email.py`, ADR-0004), one-click batch feedback (`POST /api/submissions/feedback-pending` + dashboard control), explicit shortlist/reject outcome copy in emails. Deadline reminder DEFERRED (needs roster/deadline model — see ROADMAP Next).
+
+**Single next step for the next session:** open a fresh session (it reads this memory-bank first), confirm `main`/`v1.2.0` tag state, and begin **v1.3.0 Appeal flow** per `docs/hackathon_evaluator_roadmap.md` §v1.3.0.
+
+## Recent decisions
 
 ## Recent decisions
 
@@ -26,7 +30,8 @@
 
 ## Blockers / open questions
 
-- **v1.2.0 live verification**: migrations **0008 and 0009 APPLIED by the user (2026-08-26)** ✓ — remaining: fill `EMAIL_*` credentials in `.env`, then send-test the flows (upload confirmation; batch score → batch feedback → statuses flip + reject AND shortlist emails checked against the new explicit-outcome copy); optionally flip EMAIL_PROVIDER=resend and repeat.
+- **None** — v1.2.0 live-verified and released; no blocking items.
+- **Standing hygiene (non-blocking):** the live `default` rubric still holds v0.6.0-era weights if never reset via the dashboard editor — reset to equal 25% if undesired.
 - **Standing hygiene (non-blocking):** the live `default` rubric still holds v0.6.0 test weights (problem_fit 0.15, technical_depth 0.20, feasibility 0.25, innovation 0.40) — reset to equal 25% via the dashboard editor if undesired.
 - **Standing hygiene (non-blocking):** live test data left from prior verification cycles exists in Supabase (v0.5.0/v0.6.0 decks, older Clarix/scango rows) — safe to delete later but not blocking.
 
