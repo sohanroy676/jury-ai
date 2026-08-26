@@ -392,15 +392,36 @@ def test_confirmation_content_carries_timestamp_and_type(smtp_env, smtp_calls):
     assert "PowerPoint deck" in body
 
 
-def test_results_content_tone_follows_shortlist(smtp_env, smtp_calls):
-    email_service.send_results_notification(**results_kwargs(shortlisted=True))
-    shortlisted_body = smtp_calls["smtp"][0]["text_body"]
+def test_results_email_states_outcome_explicitly(smtp_env, smtp_calls):
+    """OUTCOME property, not wording: a non-shortlisted team must be told
+    explicitly that it was NOT shortlisted (text AND HTML), and a
+    shortlisted team must be congratulated — neither may leak the other's
+    message. Regression for the 'fully evaluated' ambiguity bug."""
 
-    email_service.send_results_notification(**results_kwargs(shortlisted=False))
-    rejected_body = smtp_calls["smtp"][1]["text_body"]
+    def send(shortlisted):
+        email_service.send_results_notification(
+            **results_kwargs(shortlisted=shortlisted)
+        )
 
-    assert "made the shortlist" in shortlisted_body
-    assert "fully evaluated" in rejected_body
+    send(True)
+    shortlisted_text = smtp_calls["smtp"][0]["text_body"]
+    shortlisted_html = smtp_calls["smtp"][0]["html_body"]
+
+    send(False)
+    rejected_text = smtp_calls["smtp"][1]["text_body"]
+    rejected_html = smtp_calls["smtp"][1]["html_body"]
+
+    # Shortlisted: explicit congratulations, no negation anywhere.
+    assert "made the shortlist" in shortlisted_text
+    assert "made the shortlist" in shortlisted_html
+    assert "not shortlisted" not in shortlisted_text.lower()
+    assert "not shortlisted" not in shortlisted_html.lower()
+
+    # Not shortlisted: the outcome must be stated explicitly, both bodies.
+    assert "not shortlisted" in rejected_text.lower()
+    assert "not shortlisted" in rejected_html.lower()
+    assert "made the shortlist" not in rejected_text
+    assert "made the shortlist" not in rejected_html
 
 
 def test_results_content_lists_criteria_composite_and_link(smtp_env, smtp_calls):

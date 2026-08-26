@@ -78,6 +78,10 @@ def _esc(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _outcome_note_html(note: str) -> str:
+    return f'<p style="color:#444">{_esc(note)}</p>' if note else ""
+
+
 # --- Message content ------------------------------------------------------
 
 
@@ -134,8 +138,16 @@ def _results_content(
     team = team_name.strip()
     if shortlisted:
         headline = "Congratulations - your submission made the shortlist!"
+        outcome_note = ""
     else:
-        headline = "Your submission has been fully evaluated."
+        # State the outcome explicitly: the previous vague headline left
+        # non-shortlisted teams unable to tell whether they made the cut.
+        headline = "Result: your submission was not shortlisted."
+        outcome_note = (
+            "Your submission was evaluated across all four criteria but "
+            "did not make this event's shortlist cutoff. Full scores and "
+            "written feedback below."
+        )
     link = f"{settings.frontend_url}/submissions/{submission_id}"
     composite = f"{float(composite_score):.2f}"
     strengths = [str(s) for s in (feedback.get("strengths") or [])]
@@ -145,8 +157,11 @@ def _results_content(
     def crit_text(row: dict) -> str:
         return f"  - {row['criterion']}: {row['score']}/10 - {row['justification']}"
 
+    opening = f"Hi {team},\n\n{headline}\n"
+    if outcome_note:
+        opening += f"\n{outcome_note}\n"
     text = (
-        f"Hi {team},\n\n{headline}\n\n"
+        f"{opening}\n"
         f"  Composite score : {composite} / 10\n"
         f"  Rank            : {rank} of {scored_count} scored teams\n\n"
         "Criterion scores:\n"
@@ -177,7 +192,8 @@ def _results_content(
         '<html><body style="font-family:sans-serif;color:#1a1a1a">'
         f"<p>Hi {_esc(team)},</p>"
         f"<h2>{_esc(headline)}</h2>"
-        '<table cellpadding="6" style="border-collapse:collapse">'
+        + _outcome_note_html(outcome_note)
+        + '<table cellpadding="6" style="border-collapse:collapse">'
         f"<tr><td><b>Composite score</b></td><td>{_esc(composite)} / 10</td></tr>"
         f"<tr><td><b>Rank</b></td><td>{_esc(rank)} of {_esc(scored_count)} "
         "scored teams</td></tr></table>"
