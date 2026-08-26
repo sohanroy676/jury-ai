@@ -475,6 +475,19 @@ def get_all_scores() -> list[dict]:
 # --- Feedback + export (v0.7.0) ---------------------------------------
 
 
+def get_all_feedback_ids() -> set[str]:
+    """Return submission ids that already have a CURRENT feedback row.
+
+    Batch-feedback input (v1.2.0): one minimal-column query instead of a
+    per-submission lookup loop.
+    """
+    client = get_client()
+
+    result = client.table("feedback").select("submission_id").execute()
+
+    return {row["submission_id"] for row in (result.data or [])}
+
+
 def upsert_feedback(
     submission_id: str,
     *,

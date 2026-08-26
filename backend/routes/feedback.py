@@ -24,16 +24,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["feedback"])
 
 
-@router.post("/submissions/{submission_id}/feedback")
-async def generate_submission_feedback(
-    submission_id: str,
-    hackathon_id: str = "default",
-    top_n: int = Query(default=5, gt=0),
+async def _generate_one_feedback(
+    submission_id: str, hackathon_id: str, top_n: int
 ) -> dict:
-    """Generate and store written feedback for a scored submission.
+    """Generate, store, and email feedback for ONE submission.
 
-    ``top_n`` mirrors GET /api/rankings' shortlist semantics — the team's
-    shortlisted flag (and thus the feedback tone) follows the same cutoff.
+    Shared by the single-team endpoint and the v1.2.0 batch endpoint so
+    both surfaces behave identically (the ``_score_one_submission``
+    pattern). ``top_n`` mirrors GET /api/rankings' shortlist semantics —
+    the team's shortlisted flag (and thus the feedback tone) follows the
+    same cutoff. Raises ``HTTPException`` on every failure mode (404
+    unknown submission / 409 incomplete score set / 503 Supabase or Groq
+    unavailable / 500 persistent malformed LLM output).
     """
     # --- The submission must exist.
     try:
@@ -173,3 +175,74 @@ async def get_submission_feedback(submission_id: str) -> dict:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return {"submission_id": submission_id, "feedback": feedback}
+
+
+@router.post("/submissions/{submission_id}/feedback")
+async def generate_submission_feedback(
+    submission_id: str,
+    hackathon_id: str = "default",
+    top_n: int = Query(default=5, gt=0),
+) -> dict:
+    """Generate and store written feedback for a scored submission."""
+    return await _generate_one_feedback(submission_id, hackathon_id, top_n)
+
+
+@router.post("/submissions/feedback-pending", status_code=200)
+async def generate_pending_feedback(
+    limit: int = Query(default=10, gt=0, le=50),
+    hackathon_id: str = "default",
+    top_n: int = Query(default=5, gt=0),
+) -> dict:
+    """Sequentially generate feedback for ranked teams lacking any.
+
+    Mirrors POST /submissions/score-pending (v1.0.0): *pending* means a
+    ranked entry (complete four-criterion set — the leaderboard excludes
+    anything less) with no CURRENT feedback row yet. Teams are processed
+    best-composite-first, ONE at a time to stay inside Groq's free-tier
+    rate limits; each success also sends that team its results email via
+    the exact single-team path. One team's failure never aborts the run.
+    ``limit`` caps attempts (default 10, max 50); the response reports
+    how many pending teams remain.
+    """
+    try:
+        board = load_leaderboard(hackathon_id, top_n=top_n)
+        have_feedback = supabase.get_all_feedback_ids()
+    except supabase.SupabaseNotConfiguredError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    ranked = board["ranked"]
+    pending = [e for e in ranked if e["submission_id"] not in have_feedback]
+    batch = pending[:limit]
+
+    results: list[dict] = []
+    for entry in batch:
+        sid = entry["submission_id"]
+        try:
+            outcome = await _generate_one_feedback(sid, hackathon_id, top_n)
+        except HTTPException as exc:
+            results.append(
+                {
+                    "submission_id": sid,
+                    "team_name": entry.get("team_name", ""),
+                    "ok": False,
+                    "error": str(exc.detail),
+                }
+            )
+            continue
+        results.append(
+            {
+                "submission_id": sid,
+                "team_name": entry.get("team_name", ""),
+                "ok": True,
+                "verdict": outcome["feedback"]["verdict"],
+            }
+        )
+
+    generated = sum(1 for r in results if r["ok"])
+    failed = len(results) - generated
+    return {
+        "generated": generated,
+        "failed": failed,
+        "remaining": max(len(pending) - len(batch), 0),
+        "results": results,
+    }
