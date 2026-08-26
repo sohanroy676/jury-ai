@@ -5,6 +5,7 @@ import {
   exportCsvUrl,
   exportPdfUrl,
   fetchRankings,
+  generatePendingFeedback,
   uploadSubmission,
 } from "./api";
 
@@ -212,5 +213,52 @@ describe("uploadSubmission", () => {
       status: 0,
       message: "Network error — could not reach the backend.",
     });
+  });
+});
+
+describe("generatePendingFeedback", () => {
+  it("POSTs limit, hackathon_id, and top_n to the pending endpoint", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          generated: 0,
+          failed: 0,
+          remaining: 0,
+          results: [],
+        }),
+      })
+    );
+
+    await generatePendingFeedback(5, { hackathonId: "sih", topN: 3 });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "http://localhost:8000/api/submissions/feedback-pending?limit=5&hackathon_id=sih&top_n=3"
+    );
+    expect(init.method).toBe("POST");
+  });
+
+  it("falls back to the default hackathon and cutoff", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          generated: 0,
+          failed: 0,
+          remaining: 0,
+          results: [],
+        }),
+      })
+    );
+
+    await generatePendingFeedback(10);
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("limit=10");
+    expect(url).toContain("hackathon_id=default");
+    expect(url).toContain("top_n=5");
   });
 });

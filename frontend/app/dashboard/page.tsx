@@ -6,12 +6,14 @@ import ErrorBanner from "../../components/ErrorBanner";
 import NavLinks from "../../components/NavLinks";
 import {
   ApiError,
+  BatchFeedbackResult,
   BatchScoreResult,
   CRITERIA,
   Criterion,
   Leaderboard,
   exportCsvUrl,
   fetchRankings,
+  generatePendingFeedback,
   saveRubric,
   scorePending,
 } from "../../lib/api";
@@ -45,6 +47,10 @@ export default function DashboardPage() {
   const [batchLimitInput, setBatchLimitInput] = useState("10");
   const [batching, setBatching] = useState(false);
   const [batchResult, setBatchResult] = useState<BatchScoreResult | null>(null);
+
+  const [fbLimitInput, setFbLimitInput] = useState("10");
+  const [generating, setGenerating] = useState(false);
+  const [fbResult, setFbResult] = useState<BatchFeedbackResult | null>(null);
 
   const load = useCallback(async () => {
     setLoadingBoard(true);
@@ -125,6 +131,34 @@ export default function DashboardPage() {
       );
     } finally {
       setBatching(false);
+    }
+  }
+
+  async function handleBatchFeedback() {
+    const limit = Number(fbLimitInput);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+      setBoardError("Batch size must be a whole number between 1 and 50.");
+      return;
+    }
+    setGenerating(true);
+    setFbResult(null);
+    setBoardError(null);
+    try {
+      // The applied top-N cutoff drives each team's shortlist flag (and
+      // thus its feedback tone + email wording) — same rule as the
+      // detail-view Generate button and the export links.
+      const result = await generatePendingFeedback(limit, {
+        hackathonId: HACKATHON_ID,
+        topN: appliedTopN,
+      });
+      setFbResult(result);
+      await load();
+    } catch (err) {
+      setBoardError(
+        err instanceof ApiError ? err.message : "Feedback generation failed."
+      );
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -276,6 +310,48 @@ export default function DashboardPage() {
               {batchResult.remaining} remaining.
             </p>
             {batchResult.results
+              .filter((r) => !r.ok)
+              .map((r) => (
+                <p key={r.submission_id} className="error">
+                  {r.team_name || r.submission_id}: {r.error}
+                </p>
+              ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Generate all pending feedback</h2>
+        <p className="hint">
+          Generates written feedback for every fully-scored team that has none
+          yet — best composite first — and emails each team its result. Teams
+          are processed one at a time to stay inside the free LLM rate limits.
+        </p>
+        <div className="inline-controls">
+          <label htmlFor="fb-batch-limit">Feedback batch size (max 50)</label>
+          <input
+            id="fb-batch-limit"
+            type="number"
+            min={1}
+            max={50}
+            value={fbLimitInput}
+            onChange={(e) => setFbLimitInput(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={handleBatchFeedback}
+            disabled={generating}
+          >
+            {generating ? "Generating…" : "Start feedback generation"}
+          </button>
+        </div>
+        {fbResult && (
+          <div className="batch-result">
+            <p className={fbResult.failed > 0 ? "error" : "success"}>
+              Generated {fbResult.generated}, failed {fbResult.failed},{" "}
+              {fbResult.remaining} remaining.
+            </p>
+            {fbResult.results
               .filter((r) => !r.ok)
               .map((r) => (
                 <p key={r.submission_id} className="error">

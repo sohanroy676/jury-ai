@@ -268,6 +268,39 @@ export function scorePending(limit: number): Promise<BatchScoreResult> {
   );
 }
 
+export interface BatchFeedbackItem {
+  submission_id: string;
+  team_name: string;
+  ok: boolean;
+  verdict?: string;
+  error?: string;
+}
+
+export interface BatchFeedbackResult {
+  generated: number;
+  failed: number;
+  remaining: number;
+  results: BatchFeedbackItem[];
+}
+
+// v1.2.0: batch counterpart of triggerFeedback — generates feedback for
+// every ranked team lacking a current feedback row (best composite
+// first), sending each team its results email as it goes.
+export function generatePendingFeedback(
+  limit: number,
+  options: { hackathonId?: string; topN?: number } = {}
+): Promise<BatchFeedbackResult> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    hackathon_id: options.hackathonId ?? "default",
+    top_n: String(options.topN ?? 5),
+  });
+  return request<BatchFeedbackResult>(
+    `/api/submissions/feedback-pending?${params.toString()}`,
+    { method: "POST" }
+  );
+}
+
 // --- Export URLs (direct downloads, no JSON wrapper) --------------------
 
 export function exportCsvUrl(

@@ -23,6 +23,7 @@ vi.mock("../../lib/api", () => {
     fetchRankings: vi.fn(),
     saveRubric: vi.fn(),
     scorePending: vi.fn(),
+    generatePendingFeedback: vi.fn(),
   };
 });
 
@@ -33,6 +34,9 @@ import * as api from "../../lib/api";
 const mockRankings = api.fetchRankings as ReturnType<typeof vi.fn>;
 const mockSaveRubric = api.saveRubric as ReturnType<typeof vi.fn>;
 const mockScorePending = api.scorePending as ReturnType<typeof vi.fn>;
+const mockGeneratePending = api.generatePendingFeedback as ReturnType<
+  typeof vi.fn
+>;
 
 const BOARD = {
   hackathon_id: "default",
@@ -219,6 +223,77 @@ describe("DashboardPage", () => {
     ).toBeTruthy();
     // The board refreshes after a batch run.
     await waitFor(() => expect(mockRankings).toHaveBeenCalledTimes(2));
+  });
+
+  it("generates feedback for all pending teams and reports outcomes", async () => {
+    mockGeneratePending.mockResolvedValue({
+      generated: 2,
+      failed: 0,
+      remaining: 0,
+      results: [
+        {
+          submission_id: "id-1",
+          team_name: "Moonshot",
+          ok: true,
+          verdict: "shortlist",
+        },
+        {
+          submission_id: "id-2",
+          team_name: "Practical",
+          ok: true,
+          verdict: "reject",
+        },
+      ],
+    });
+    await renderDashboard();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /start feedback generation/i })
+    );
+
+    // The applied top-N cutoff rides along (tone + email wording rule).
+    await waitFor(() =>
+      expect(mockGeneratePending).toHaveBeenCalledWith(10, {
+        hackathonId: "default",
+        topN: undefined,
+      })
+    );
+    await screen.findByText((content) =>
+      content.includes("Generated 2, failed 0")
+    );
+    // The board refreshes after a batch run.
+    await waitFor(() => expect(mockRankings).toHaveBeenCalledTimes(2));
+  });
+
+  it("reports per-item feedback failures", async () => {
+    mockGeneratePending.mockResolvedValue({
+      generated: 1,
+      failed: 1,
+      remaining: 0,
+      results: [
+        { submission_id: "id-1", team_name: "Moonshot", ok: true },
+        {
+          submission_id: "id-2",
+          team_name: "Practical",
+          ok: false,
+          error: "Feedback failed: API error",
+        },
+      ],
+    });
+    await renderDashboard();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /start feedback generation/i })
+    );
+
+    await screen.findByText((content) =>
+      content.includes("Generated 1, failed 1")
+    );
+    expect(
+      screen.getByText((content) =>
+        content.includes("Practical: Feedback failed")
+      )
+    ).toBeTruthy();
   });
 
   it("surfaces fetch errors in the banner", async () => {
