@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [Unreleased]
+
+### Features
+
+* **notifications:** Add team email and dual-provider mailer ([e26d732](https://github.com/sohanroy676/jury-ai/commit/e26d7324a3cd708e85d3100acba1ec0ce7adc0bd))
+* **portal:** Collect contact email for notifications ([9f0d049](https://github.com/sohanroy676/jury-ai/commit/9f0d0491b3318d45c12108bb4dd3d4e71f08247d))
+
 ## [v1.1.0] - 2026-08-25
 
 ### Bug Fixes
