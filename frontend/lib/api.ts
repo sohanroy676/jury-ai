@@ -140,6 +140,11 @@ export interface UploadedSubmission {
   team_name: string;
   status?: string;
   uploaded_at?: string;
+  team_email?: string | null;
+  /** v1.2.0: notification outcomes ride along on the upload response. */
+  notification?: {
+    confirmation_email?: { status: string; reason?: string };
+  };
 }
 
 // --- Endpoints ----------------------------------------------------------
@@ -160,13 +165,17 @@ export function fetchSubmission(
 // every backend call funnels through this module's error mapping. A 409
 // means the team already has an active submission — the caller shows its
 // "replace previous version" confirmation and retries with replaceExisting.
+// v1.2.0: teamEmail rides along so the backend can send the confirmation
+// now and the results-with-feedback email later.
 export async function uploadSubmission(
   teamName: string,
+  teamEmail: string,
   file: File,
   options: { replaceExisting?: boolean } = {}
 ): Promise<UploadedSubmission> {
   const formData = new FormData();
   formData.append("team_name", teamName);
+  formData.append("team_email", teamEmail);
   formData.append("file", file);
   if (options.replaceExisting) {
     formData.append("replace_existing", "true");

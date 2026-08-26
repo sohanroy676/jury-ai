@@ -39,6 +39,9 @@ function fillValidForm() {
   fireEvent.change(screen.getByLabelText(/Team name/i), {
     target: { value: "Team Alpha" },
   });
+  fireEvent.change(screen.getByLabelText(/Contact email/i), {
+    target: { value: "team@example.com" },
+  });
   fireEvent.change(screen.getByLabelText(/Submission file/i), {
     target: { files: [pdfFile()] },
   });
@@ -66,7 +69,9 @@ describe("Home portal", () => {
 
     expect(submitButton().disabled).toBe(true);
     expect(
-      screen.getByText(/A team name and a valid PDF\/PPTX file are required/i)
+      screen.getByText(
+        /A team name, a contact email, and a valid PDF\/PPTX file are required/i
+      )
     ).toBeTruthy();
   });
 
@@ -106,6 +111,7 @@ describe("Home portal", () => {
       id: "sub-9",
       team_name: "Team Alpha",
       status: "submitted",
+      notification: { confirmation_email: { status: "sent", reason: "sent" } },
     });
     mockFetchSubmission.mockResolvedValue({
       submission: { id: "sub-9", team_name: "Team Alpha" },
@@ -124,9 +130,15 @@ describe("Home portal", () => {
     await screen.findByText(
       /Parsed sections \(2\): Problem Statement, Solution\./i
     );
-    expect(mockUpload).toHaveBeenCalledWith("Team Alpha", expect.any(File), {
-      replaceExisting: false,
-    });
+    await screen.findByText(
+      /A confirmation email was sent to team@example\.com\./i
+    );
+    expect(mockUpload).toHaveBeenCalledWith(
+      "Team Alpha",
+      "team@example.com",
+      expect.any(File),
+      { replaceExisting: false }
+    );
     expect(mockFetchSubmission).toHaveBeenCalledWith("sub-9");
   });
 
@@ -160,6 +172,18 @@ describe("Home portal", () => {
     await screen.findByText(/No titled sections were detected/i);
   });
 
+  it("blocks submit while the contact email is invalid", () => {
+    render(<Home />);
+    fillValidForm();
+    fireEvent.change(screen.getByLabelText(/Contact email/i), {
+      target: { value: "not-an-email" },
+    });
+
+    expect(submitButton().disabled).toBe(true);
+    expect(screen.getByText(/valid email address/i)).toBeTruthy();
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
   it("maps network failures to the friendly message", async () => {
     mockUpload.mockRejectedValue(
       new api.ApiError(0, "Network error — could not reach the backend.")
@@ -175,6 +199,7 @@ async function waitForReplaceCall() {
   await vi.waitFor(() =>
     expect(mockUpload).toHaveBeenLastCalledWith(
       "Team Alpha",
+      "team@example.com",
       expect.any(File),
       { replaceExisting: true }
     )

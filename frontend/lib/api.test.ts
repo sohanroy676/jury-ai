@@ -145,7 +145,7 @@ describe("uploadSubmission", () => {
     type: "application/pdf",
   });
 
-  it("posts multipart form data to /api/submissions", async () => {
+  it("posts multipart form data including team_email", async () => {
     const fetchMock = stubFetch(() =>
       Promise.resolve({
         ok: true,
@@ -154,13 +154,14 @@ describe("uploadSubmission", () => {
       })
     );
 
-    await uploadSubmission("Team Alpha", FILE);
+    await uploadSubmission("Team Alpha", "team@example.com", FILE);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:8000/api/submissions");
     expect(init.method).toBe("POST");
     const body = init.body as FormData;
     expect(body.get("team_name")).toBe("Team Alpha");
+    expect(body.get("team_email")).toBe("team@example.com");
     expect(body.get("file")).toBeTruthy();
     // No replace flag unless explicitly requested.
     expect(body.get("replace_existing")).toBeNull();
@@ -175,7 +176,9 @@ describe("uploadSubmission", () => {
       })
     );
 
-    await uploadSubmission("Team Alpha", FILE, { replaceExisting: true });
+    await uploadSubmission("Team Alpha", "team@example.com", FILE, {
+      replaceExisting: true,
+    });
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((init.body as FormData).get("replace_existing")).toBe("true");
@@ -192,7 +195,9 @@ describe("uploadSubmission", () => {
       })
     );
 
-    await expect(uploadSubmission("X", FILE)).rejects.toMatchObject({
+    await expect(
+      uploadSubmission("X", "x@example.com", FILE)
+    ).rejects.toMatchObject({
       status: 409,
       message: "Team 'X' already has an active submission.",
     });
@@ -201,7 +206,9 @@ describe("uploadSubmission", () => {
   it("maps network failures to the friendly message", async () => {
     stubFetch(() => Promise.reject(new Error("connection refused")));
 
-    await expect(uploadSubmission("X", FILE)).rejects.toMatchObject({
+    await expect(
+      uploadSubmission("X", "x@example.com", FILE)
+    ).rejects.toMatchObject({
       status: 0,
       message: "Network error — could not reach the backend.",
     });

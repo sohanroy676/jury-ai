@@ -13,9 +13,12 @@ import {
 
 const ALLOWED_EXTENSIONS = [".pdf", ".pptx"];
 const MAX_UPLOAD_MB = 50;
+// Same shape rule the backend enforces (services/email.py is_valid_email).
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Home() {
   const [teamName, setTeamName] = useState("");
+  const [teamEmail, setTeamEmail] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +88,13 @@ export default function Home() {
       setError("Team name is required.");
       return;
     }
+    const recipient = teamEmail.trim();
+    if (!EMAIL_PATTERN.test(recipient)) {
+      setError(
+        "Please enter a valid contact email so we can send your confirmation."
+      );
+      return;
+    }
     if (!file) {
       setError("Please select a PDF or PPTX file.");
       return;
@@ -92,7 +102,9 @@ export default function Home() {
 
     setSubmitting(true);
     try {
-      const data = await uploadSubmission(teamName, file, { replaceExisting });
+      const data = await uploadSubmission(teamName, recipient, file, {
+        replaceExisting,
+      });
 
       // v1.1.0: surface what the parser found so teams immediately see
       // whether their document structure came through. Non-fatal on error.
@@ -115,8 +127,22 @@ export default function Home() {
         // make a successful upload look failed.
       }
 
-      setSuccess(`Submission received! ID: ${data.id}.${sectionNote}`);
+      // v1.2.0: reflect the confirmation-email outcome so teams know the
+      // notification went out (or why it didn't).
+      let emailNote = "";
+      const confirmation = data.notification?.confirmation_email;
+      if (confirmation?.status === "sent") {
+        emailNote = ` A confirmation email was sent to ${recipient}.`;
+      } else if (confirmation) {
+        emailNote =
+          " We couldn't send a confirmation email, but your submission was received.";
+      }
+
+      setSuccess(
+        `Submission received! ID: ${data.id}.${sectionNote}${emailNote}`
+      );
       setTeamName("");
+      setTeamEmail("");
       setFile(null);
       void loadSubmissions();
     } catch (err) {
@@ -137,7 +163,11 @@ export default function Home() {
     void doSubmit(false);
   }
 
-  const formReady = Boolean(teamName.trim()) && file !== null;
+  const trimmedEmail = teamEmail.trim();
+  const emailValid = EMAIL_PATTERN.test(trimmedEmail);
+  const showEmailError = teamEmail.length > 0 && !emailValid;
+
+  const formReady = Boolean(teamName.trim()) && emailValid && file !== null;
 
   return (
     <main>
@@ -157,6 +187,23 @@ export default function Home() {
             onChange={(e) => setTeamName(e.target.value)}
             placeholder="e.g. Team Alpha"
           />
+        </div>
+
+        <div>
+          <label htmlFor="team_email">Contact email</label>
+          {/* type="text" + inline validation on purpose (v1.1.0 lesson:
+              native constraint validation fights both jsdom tests and the
+              styled-message UX); submit is gated by formReady anyway. */}
+          <input
+            id="team_email"
+            type="text"
+            value={teamEmail}
+            onChange={(e) => setTeamEmail(e.target.value)}
+            placeholder="results & confirmation will be mailed here"
+          />
+          {showEmailError && (
+            <p className="error">Please enter a valid email address.</p>
+          )}
         </div>
 
         <div>
@@ -197,7 +244,8 @@ export default function Home() {
         </button>
         {!formReady && !submitting && (
           <p className="hint">
-            A team name and a valid PDF/PPTX file are required to submit.
+            A team name, a contact email, and a valid PDF/PPTX file are required
+            to submit.
           </p>
         )}
       </form>
