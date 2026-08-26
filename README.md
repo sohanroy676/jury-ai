@@ -148,10 +148,13 @@ With the backend and frontend running (`.env` configured with Supabase +
 3. In **Score all pending**, set a batch size and click **Start batch scoring** —
    the leaderboard below populates as submissions get scored.
 4. Tune **Rubric weights (%)** and save — the leaderboard recomputes immediately.
-5. Export the board via **Export CSV**.
-6. Click a team name to open its detail page: read criterion scores and
-   justifications, generate written feedback (verdict follows the shortlist
-   cutoff `top N` you set), and **Download PDF report**.
+5. Apply a shortlist top-N, then in **Generate all pending feedback** click
+   **Start feedback generation** — every fully-scored team without feedback gets
+   its write-up, its status flips to Shortlisted/Rejected, and results emails go
+   out automatically (best composite first).
+6. Export the board via **Export CSV**.
+7. Click a team name to open its detail page: read criterion scores and
+   justifications, regenerate written feedback, and **Download PDF report**.
 
 ## Testing
 
