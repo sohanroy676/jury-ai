@@ -74,6 +74,15 @@
 - **Archive ordering is archive-BEFORE-insert** inside `insert_submission(supersedes_team=True)` — a crash between the two statements leaves zero-or-one active rows, never two.
 - **Export/download URLs must forward the cutoff that produced the view.** The ranking engine treats no-cutoff as nobody-shortlisted, so an Export CSV/PDF link built without top_n/min_score silently exports a different board than what the evaluator sees. exportCsvUrl(hackathonId, topN, minScore?) and exportPdfUrl(submissionId, hackathonId, topN?) take cutoff params and every call site forwards live state (appliedTopN on the dashboard, the top-N input on the detail view) - no URL call site calls these helpers without forwarding its view cutoff.
 
+### v1.2.0 additions
+
+- **The email seam returns outcomes instead of raising.** `backend/services/email.py` is the ONLY module touching smtplib/mail-httpx; `_dispatch()` validates (recipient shape, provider whitelist, credentials) and returns `EmailResult(status, reason, detail)` — callers log non-sent outcomes and surface `{status, reason}` in responses. Recipients and subjects pass through CR/LF/control-char stripping BEFORE headers; HTML bodies escape every interpolated value (PDF-exporter discipline).
+- **Resend has no SDK by design** (ADR-0004): pinned httpx POST to `api.resend.com/emails`; retries ONLY 429/transport errors, max 3 attempts, exponential backoff through the `_sleep` indirection (tests patch it, never wall-clock).
+- **Blocking sends run via `asyncio.to_thread`** at route call sites — smtplib would otherwise pin the event loop.
+- **Blank team_email persists as NULL** (`insert_submission(team_email or None)`); DB CHECK enforces shape as defense-in-depth behind route validation (`email_service.is_valid_email`).
+- **Any test file exercising POST /api/submissions or the feedback routes autouse-mocks the email service** — the developer's `.env` may hold live credentials; pytest must be incapable of sending real mail.
+- **Prettier churn policy (re-verified)**: `npm run format` touched ~15 untouched files as CRLF-only noise; classify with `git diff --ignore-cr-at-eol --stat <file>` and `git checkout --` the no-content-diff ones so formatter churn never enters history.
+
 ## Things to avoid
 
 - **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.

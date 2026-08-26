@@ -34,6 +34,8 @@ Apply each migration file from `infra/migrations/` **in filename order**:
    - `0005_add_image_descriptions.sql` — adds the `image_descriptions` column to `parsed_submissions` *(v0.3.5)*
    - `0006_create_rubric_config.sql` — creates the `rubric_config` table + default equal weights *(v0.6.0)*
    - `0007_create_feedback.sql` — creates the `feedback` table *(v0.7.0)*
+   - `0008_allow_resubmission.sql` — adds `superseded_at` for re-submission history *(v1.1.0)*
+   - `0009_add_team_email.sql` — adds the `team_email` column for notifications *(v1.2.0)*
 3. After all migrations you should see the tables under **Table Editor**: `submissions`, `parsed_submissions`, `scores`, `image_cache`, `rubric_config`, `feedback`.
 
 
@@ -67,6 +69,31 @@ Apply each migration file from `infra/migrations/` **in filename order**:
    3. Restart the backend.
 
    Scoring and all text stages always use Groq regardless of this setting; leaving `VISION_PROVIDER=groq` (the default) keeps behavior identical to v0.3.5.
+
+4. **(Optional but recommended) Notification emails** *(v1.2.0)*: teams get a confirmation email right after a successful upload and a results-with-feedback email when their feedback is generated. The portal collects each team's contact email at upload time (stored in `submissions.team_email`, migration 0009).
+
+   **Gmail SMTP (default transport):**
+   1. Enable 2-Step Verification on your Google account.
+   2. Create an App Password at <https://myaccount.google.com/apppasswords>.
+   3. In `.env` set:
+      ```
+      EMAIL_PROVIDER=smtp
+      EMAIL_FROM=yourgmail@gmail.com
+      SMTP_USER=yourgmail@gmail.com
+      SMTP_PASSWORD=<16-char App Password>
+      ```
+
+   **Resend (alternative):**
+   1. Create a free API key at <https://resend.com> (no credit card needed).
+   2. In `.env` set:
+      ```
+      EMAIL_PROVIDER=resend
+      EMAIL_FROM=onboarding@resend.dev
+      RESEND_API_KEY=your-key-here
+      ```
+      Caveat: without a verified custom domain, Resend only delivers to your own account email — fine for development, not for a real event.
+
+   Leaving every credential blank disables notifications gracefully — uploads and feedback generation never fail because of mail problems; outcomes are logged and reported in the API responses. Restart the backend after changing any of these.
 
 > **Security:** `.env` is git-ignored. Never commit it. The `service_role` key in particular must never appear in frontend code or be committed.
 

@@ -2,7 +2,7 @@
 
 **Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events.
 
-> **Status:** v1.1.0 — Submission UX polish: editable rubric weights, batch scoring, top-N feedback generation, CSV/PDF export, and the shortlist-cutoff export fix. See [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** v1.2.0 — Notifications: submission confirmation + results-with-feedback emails over a pluggable free-tier transport (`EMAIL_PROVIDER=smtp|resend`), alongside editable rubric weights, batch scoring, CSV/PDF export, and resubmission-with-history. See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ## Features
 
@@ -187,6 +187,8 @@ npm run format      # format
 - **v0.6.0** ✅ Weighted scoring + ranking — configurable rubric (`PUT /api/rubrics/{hackathon_id}`), composite leaderboard (`GET /api/rankings`), top-N / min-score shortlist cutoffs, deterministic tie-breaking.
 - **v0.7.0** ✅ Feedback agent + export — written strengths/weaknesses/suggestion per team with shortlist/reject verdict; CSV leaderboard and ReportLab PDF report downloads.
 - **v1.0.0** ✅ Evaluator dashboard MVP — leaderboard with shortlist/tie badges, rubric % editor, batch score-pending scoring, submission detail view, typed frontend API client.
+- **v1.1.0** ✅ Submission UX — pre-submit upload validation, re-submission with archived history (409 replace flow), derived pipeline StageTracker with polling.
+- **v1.2.0** ✅ Notifications — team contact email collected at upload; confirmation email after parse-complete; results-with-feedback email on generation; dual transport behind `EMAIL_PROVIDER` (Gmail SMTP default, Resend optional).
 
 See [ROADMAP.md](ROADMAP.md) and [docs/hackathon_evaluator_roadmap.md](docs/hackathon_evaluator_roadmap.md) for the full plan.
 

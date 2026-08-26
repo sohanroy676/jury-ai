@@ -4,9 +4,16 @@
 
 ## Current focus
 
-**v1.1.0 SHIPPED & PUSHED (2026-08-25).** Tag `v1.1.0` (annotated) on `a319e80`; `main` and `v1.1.0` tag both pushed to origin — `main...origin/main` clean, working tree clean. The CSV/PDF shortlist-cutoff bug (Export CSV downloading a board where every team shows "no" despite a top-3 shortlist shown on screen) is fixed and regression-covered; migration `0008_allow_resubmission.sql` was applied by the user and live-verified. **Next: v1.2.0 Email notifications** (confirmation on upload, reminder before deadline, results-with-feedback via Gmail SMTP or Resend free tier) — start in a new session that reads this memory-bank first (06-session-efficiency).
+**v1.2.0 Notifications CODE-COMPLETE (2026-08-26), branch `feature/v1.2.0-notifications`.** All suites green: pytest **379**, Vitest **41**, ruff + ESLint clean, version synced to 1.2.0. Delivered: team_email collection (migration 0009 + portal field), confirmation email after parse-complete upload, results-with-feedback email on feedback generation, dual transport behind `EMAIL_PROVIDER=smtp|resend` in `backend/services/email.py` (ADR-0004). Deadline-reminder sub-feature DEFERRED (blocked on roster/deadline data model — ROADMAP Next notes it). **Next session steps:** (1) commit the working tree per /commit workflow incl. CHANGELOG regen; (2) USER applies migration `0009_add_team_email.sql` in Supabase SQL Editor and fills EMAIL_* in `.env`; (3) LIVE verification — upload → confirmation < 1 min; generate feedback → results email renders desktop+mobile; optionally flip EMAIL_PROVIDER=resend and repeat; (4) merge/tag/push with approval.
 
 ## Recent decisions
+
+- **Email problems never raise — they return.** `services/email.py` dispatch validates recipient/provider/config and returns `EmailResult(status∈sent|skipped|failed, reason, detail)`; a broad except maps transport errors to failed+logged. Rationale: an unconfigured/broken mail transport must not break uploads or feedback (image-stage degradation philosophy). Responses expose only `{status, reason}` — detail stays in logs.
+- **Dual transport behind `EMAIL_PROVIDER` (smtp default | resend)** per explicit user decision. Resend implemented as hand-rolled REST over pinned httpx because its SDK needs httpx>=0.28 vs supabase's `<0.28` pin (same trap as google-genai in ADR-0003); retry policy mirrors Gemini describer: ONLY 429/transport ×3 exponential backoff via `_sleep`.
+- **team_email semantics**: nullable column, blank input stored NULL (DB CHECK allows null not ''); API treats it optional while the portal REQUIRES a valid address (formReady gate) — Postel leniency at the boundary, strictness in UX.
+- **Feedback regeneration deliberately re-emails**: every successful generation produces the team's current official result, so re-notifying is correct; failures never reach the mail line.
+- **Route tests touching POST /submissions or feedback MUST autouse-mock the mailer** — the developer's real `.env` may hold live SMTP credentials; this keeps `pytest` permanently incapable of sending real mail.
+- **main.py CORS origins now come from Settings.frontend_urls** (single getenv parse; first entry doubles as the email link base URL).
 
 - **Export links must forward the shortlist cutoff that produced the view.** The engine treats "no cutoff" as nobody-shortlisted, so an Export CSV / PDF link built without `top_n`/`min_score` silently exports a different board than what the evaluator sees. Both `exportCsvUrl`/`exportPdfUrl` now take cutoff params and every call site forwards live state (`appliedTopN` on the dashboard, the top-N input on the detail view).
 - **v1.1.0 pipeline stages are DERIVED, never stored.** The StageTracker computes Submitted/Parsed/Scored from real artifacts (row exists / parsed row present / complete four-criterion set) and the final Shortlisted-vs-Rejected label from the FeedbackAgent verdict — `submissions.status` stays untouched, mirroring the compute-on-the-fly convention used for ranking composites.
@@ -19,8 +26,7 @@
 
 ## Blockers / open questions
 
-- **None for v1.1.0** — shipped and pushed; no blocking items for the next session.
-- **v1.2.0 starter tasks** (carry forward): (1) read `docs/hackathon_evaluator_roadmap.md` §v1.2.0 for the exact email templates + trigger points; (2) decide Gmail SMTP vs Resend free-tier path and add `SMTP_*` / Resend keys to `.env.example` (free-tier only — no paid deps); (3) wire notification triggers into existing `POST /api/submissions` (on parse-complete → send confirmation) and the scoring/feedback completion path (→ send results). Reuse `lib/api.ts` patterns from v1.1.0.
+- **v1.2.0 live verification needs the user**: apply migration `0009_add_team_email.sql` (backend works against un-migrated DB for uploads WITHOUT email, but any notification insert path expects the column — treat migration as hard runtime dependency like 0008), then add real `EMAIL_*` credentials to `.env`, then send-test both providers.
 - **Standing hygiene (non-blocking):** the live `default` rubric still holds v0.6.0 test weights (problem_fit 0.15, technical_depth 0.20, feasibility 0.25, innovation 0.40) — reset to equal 25% via the dashboard editor if undesired.
 - **Standing hygiene (non-blocking):** live test data left from prior verification cycles exists in Supabase (v0.5.0/v0.6.0 decks, older Clarix/scango rows) — safe to delete later but not blocking.
 
