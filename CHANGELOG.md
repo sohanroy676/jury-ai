@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
-## [Unreleased]
+## [v1.2.0] - 2026-08-26
 
 ### Bug Fixes
 
