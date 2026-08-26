@@ -5,6 +5,10 @@ Format follows Keep a Changelog. Generated from Conventional Commits — regener
 
 ## [Unreleased]
 
+### Bug Fixes
+
+* **email:** State shortlist outcome explicitly in reject emails ([9eb27bf](https://github.com/sohanroy676/jury-ai/commit/9eb27bf6959de8ec97839fb78f41c1f3c0855bc2))
+
 ### Features
 
 * **notifications:** Add team email and dual-provider mailer ([e26d732](https://github.com/sohanroy676/jury-ai/commit/e26d7324a3cd708e85d3100acba1ec0ce7adc0bd))
