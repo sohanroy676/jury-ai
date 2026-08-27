@@ -5,7 +5,10 @@ import {
   exportCsvUrl,
   exportPdfUrl,
   fetchRankings,
+  fileAppeal,
   generatePendingFeedback,
+  resolveAppeal,
+  setResultsPublished,
   uploadSubmission,
 } from "./api";
 
@@ -260,5 +263,100 @@ describe("generatePendingFeedback", () => {
     expect(url).toContain("limit=10");
     expect(url).toContain("hackathon_id=default");
     expect(url).toContain("top_n=5");
+  });
+});
+
+describe("fileAppeal", () => {
+  it("POSTs the appeal payload to /api/appeals", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 201,
+        json: async () => ({ id: "appeal-1", status: "open" }),
+      })
+    );
+
+    await fileAppeal({
+      submissionId: "sub-1",
+      reason: "We disagree.",
+      contactEmail: "team@example.com",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:8000/api/appeals");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      submission_id: "sub-1",
+      reason: "We disagree.",
+      contact_email: "team@example.com",
+      hackathon_id: "default",
+    });
+  });
+
+  it("rejects with the backend 403 when results are unpublished", async () => {
+    stubFetch(() =>
+      Promise.resolve({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          detail: "Results have not been published yet; appeals are not open.",
+        }),
+      })
+    );
+
+    await expect(
+      fileAppeal({ submissionId: "sub-1", reason: "Hi." })
+    ).rejects.toMatchObject({
+      status: 403,
+      message: "Results have not been published yet; appeals are not open.",
+    });
+  });
+});
+
+describe("resolveAppeal", () => {
+  it("POSTs the decision payload to the resolve endpoint", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ appeal: { status: "resolved", decision: "upheld" } }),
+      })
+    );
+
+    await resolveAppeal("appeal-1", {
+      decision: "upheld",
+      decisionNote: "Reasonable.",
+      evaluator: "e-1",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://localhost:8000/api/appeals/appeal-1/resolve");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      decision: "upheld",
+      decision_note: "Reasonable.",
+      evaluator: "e-1",
+    });
+  });
+});
+
+describe("setResultsPublished", () => {
+  it("PUTs the published flag to the hackathon results endpoint", async () => {
+    const fetchMock = stubFetch(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ hackathon_id: "default", results_published: true }),
+      })
+    );
+
+    await setResultsPublished(true);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "http://localhost:8000/api/hackathon/default/results"
+    );
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({ published: true });
   });
 });

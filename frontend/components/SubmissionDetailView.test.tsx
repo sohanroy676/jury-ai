@@ -18,6 +18,9 @@ vi.mock("../lib/api", () => {
     exportPdfUrl: () => "http://test/pdf",
     fetchFeedback: vi.fn(),
     fetchSubmission: vi.fn(),
+    fetchHackathonSettings: vi.fn(),
+    fetchSubmissionAppeal: vi.fn(),
+    fileAppeal: vi.fn(),
     triggerFeedback: vi.fn(),
     triggerScore: vi.fn(),
   };
@@ -31,6 +34,11 @@ const mockFetchSubmission = api.fetchSubmission as ReturnType<typeof vi.fn>;
 const mockFetchFeedback = api.fetchFeedback as ReturnType<typeof vi.fn>;
 const mockTriggerScore = api.triggerScore as ReturnType<typeof vi.fn>;
 const mockTriggerFeedback = api.triggerFeedback as ReturnType<typeof vi.fn>;
+const mockFetchHackathonSettings = api
+  .fetchHackathonSettings as ReturnType<typeof vi.fn>;
+const mockFetchSubmissionAppeal = api
+  .fetchSubmissionAppeal as ReturnType<typeof vi.fn>;
+const mockFileAppeal = api.fileAppeal as ReturnType<typeof vi.fn>;
 
 const SUBMISSION = {
   submission: {
@@ -60,6 +68,17 @@ beforeEach(() => {
   mockFetchFeedback.mockResolvedValue({
     submission_id: "sub-1",
     feedback: null,
+  });
+  // v1.3.0 appeals: by default results are NOT published and there is no
+  // appeal on file (the component treats these as best-effort lookups).
+  mockFetchHackathonSettings.mockResolvedValue({
+    hackathon_id: "default",
+    results_published: false,
+  });
+  mockFetchSubmissionAppeal.mockRejectedValue(new Error("404 no appeal"));
+  mockFileAppeal.mockResolvedValue({
+    id: "appeal-1",
+    status: "open",
   });
 });
 
@@ -218,5 +237,115 @@ describe("SubmissionDetailView", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // --- v1.3.0 appeals --------------------------------------------------------
+
+  it("hides the appeal form until results are published", async () => {
+    await renderDetail();
+
+    expect(screen.getByText(/appeals open once results are published/i)).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /file appeal/i })
+    ).toBeNull();
+  });
+
+  it("shows the appeal form when results are published and a verdict exists", async () => {
+    mockFetchHackathonSettings.mockResolvedValue({
+      hackathon_id: "default",
+      results_published: true,
+    });
+    mockFetchFeedback.mockResolvedValue({
+      submission_id: "sub-1",
+      feedback: {
+        strengths: [],
+        weaknesses: [],
+        suggestion: "ok",
+        verdict: "reject",
+      },
+    });
+
+    await renderDetail();
+
+    expect(
+      screen.getByRole("button", { name: /file appeal/i })
+    ).toBeTruthy();
+  });
+
+  it("files an appeal and shows the pending status", async () => {
+    mockFetchHackathonSettings.mockResolvedValue({
+      hackathon_id: "default",
+      results_published: true,
+    });
+    mockFetchFeedback.mockResolvedValue({
+      submission_id: "sub-1",
+      feedback: {
+        strengths: [],
+        weaknesses: [],
+        suggestion: "ok",
+        verdict: "reject",
+      },
+    });
+    mockFileAppeal.mockResolvedValue({
+      id: "appeal-1",
+      status: "open",
+      reason: "We disagree.",
+    });
+    await renderDetail();
+
+    fireEvent.change(screen.getByLabelText("Appeal reason"), {
+      target: { value: "We disagree." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /file appeal/i }));
+
+    await waitFor(() =>
+      expect(mockFileAppeal).toHaveBeenCalledWith({
+        submissionId: "sub-1",
+        reason: "We disagree.",
+      })
+    );
+    await screen.findByText(/appeal filed/i);
+  });
+
+  it("refuses to file a blank appeal reason", async () => {
+    mockFetchHackathonSettings.mockResolvedValue({
+      hackathon_id: "default",
+      results_published: true,
+    });
+    mockFetchFeedback.mockResolvedValue({
+      submission_id: "sub-1",
+      feedback: {
+        strengths: [],
+        weaknesses: [],
+        suggestion: "ok",
+        verdict: "reject",
+      },
+    });
+    await renderDetail();
+
+    fireEvent.click(screen.getByRole("button", { name: /file appeal/i }));
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert").textContent).toContain(
+      "appealing the result"
+    );
+    expect(mockFileAppeal).not.toHaveBeenCalled();
+  });
+
+  it("shows an existing resolved appeal outcome", async () => {
+    mockFetchSubmissionAppeal.mockResolvedValue({
+      appeal: {
+        id: "appeal-1",
+        status: "resolved",
+        decision: "dismissed",
+        decision_note: "No new grounds.",
+        reason: "We disagree.",
+      },
+    });
+
+    await renderDetail();
+
+    expect(screen.getByText(/dismissed/i)).toBeTruthy();
+    expect(screen.getByText(/No new grounds/i)).toBeTruthy();
   });
 });

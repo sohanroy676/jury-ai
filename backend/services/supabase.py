@@ -559,3 +559,190 @@ def get_feedback(submission_id: str) -> dict | None:
         return None
 
     return result.data[0]
+
+
+# --- Appeals (v1.3.0) ---------------------------------------------------
+
+
+def insert_appeal(
+    submission_id: str,
+    reason: str,
+    contact_email: str | None = None,
+    hackathon_id: str = "default",
+) -> dict:
+    """File an appeal against a submission (results must be published).
+
+    Raises the underlying ``supabase`` conflict error when the partial
+    unique index ``(submission_id) where status='open'`` rejects a second
+    open appeal — the route maps that to a 409 before inserting.
+
+    Args:
+        submission_id: The UUID of the scored, feedback-carrying submission.
+        reason: The team's written contest-argument.
+        contact_email: Address for appeal outcome notifications (blank opts out).
+        hackathon_id: Hackathon scope key.
+
+    Returns:
+        The inserted appeal row as a dict.
+    """
+    client = get_client()
+
+    row = (
+        client.table("appeals")
+        .insert(
+            {
+                "submission_id": submission_id,
+                "hackathon_id": hackathon_id,
+                "reason": reason,
+                "contact_email": (contact_email or None),
+            }
+        )
+        .execute()
+        .data[0]
+    )
+    return row
+
+
+def get_appeal(appeal_id: str) -> dict | None:
+    """Fetch one appeal by id, or ``None`` when it does not exist."""
+    client = get_client()
+
+    result = client.table("appeals").select("*").eq("id", appeal_id).limit(1).execute()
+
+    if not result.data:
+        return None
+
+    return result.data[0]
+
+
+def get_appeal_by_submission(submission_id: str) -> dict | None:
+    """Return the most recent appeal for a submission (team-facing).
+
+    Returns the newest row regardless of status so the team-facing view can
+    show both an open appeal and a resolved one. ``None`` when none exists.
+    """
+    client = get_client()
+
+    result = (
+        client.table("appeals")
+        .select("*")
+        .eq("submission_id", submission_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data[0]
+
+
+def list_appeals(status: str | None = None) -> list[dict]:
+    """Fetch appeals for the evaluator queue, newest-first.
+
+    Args:
+        status: When ``"open"`` or ``"resolved"``, filter to that state;
+            ``None`` returns every appeal.
+
+    Returns:
+        A list of appeal rows.
+    """
+    client = get_client()
+
+    query = client.table("appeals").select("*")
+    if status in ("open", "resolved"):
+        query = query.eq("status", status)
+    result = query.order("created_at", desc=True).execute()
+
+    return list(result.data or [])
+
+
+def resolve_appeal(
+    appeal_id: str,
+    decision: str,
+    decision_note: str,
+    evaluator: str,
+) -> dict | None:
+    """Resolve an open appeal, logging the final decision against it.
+
+    Args:
+        appeal_id: The UUID of the appeal to resolve.
+        decision: ``upheld`` or ``dismissed`` (validated upstream).
+        decision_note: Free-text rationale for the decision.
+        evaluator: Identity of the human evaluator who decided.
+
+    Returns:
+        The updated appeal row, or ``None`` when the appeal does not exist.
+    """
+    client = get_client()
+
+    result = (
+        client.table("appeals")
+        .update(
+            {
+                "status": "resolved",
+                "decision": decision,
+                "decision_note": decision_note,
+                "evaluator": evaluator,
+                "decided_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .eq("id", appeal_id)
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data[0]
+
+
+# --- Hackathon settings / results-published gate (v1.3.0) ---------------
+
+
+def get_hackathon_settings(hackathon_id: str) -> dict | None:
+    """Fetch a hackathon's settings row (results-published gate).
+
+    Returns ``None`` when the hackathon row does not exist (the route should
+    treat an unknown hackathon as NOT published).
+    """
+    client = get_client()
+
+    result = (
+        client.table("hackathon_settings")
+        .select("*")
+        .eq("hackathon_id", hackathon_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data[0]
+
+
+def update_results_published(hackathon_id: str, published: bool) -> dict:
+    """Flip the results-published gate for a hackathon.
+
+    ``published=True`` stamps ``results_published_at`` (idempotent);
+    ``published=False`` clears it, closing the appeal window.
+    """
+    client = get_client()
+
+    row = (
+        client.table("hackathon_settings")
+        .update(
+            {
+                "results_published_at": (
+                    datetime.now(timezone.utc).isoformat() if published else None
+                ),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
+
+    return (row.data or [{}])[0]

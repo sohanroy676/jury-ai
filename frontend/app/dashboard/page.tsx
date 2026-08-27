@@ -12,10 +12,12 @@ import {
   Criterion,
   Leaderboard,
   exportCsvUrl,
+  fetchHackathonSettings,
   fetchRankings,
   generatePendingFeedback,
   saveRubric,
   scorePending,
+  setResultsPublished,
 } from "../../lib/api";
 import type { Weights } from "../../lib/api";
 
@@ -51,6 +53,24 @@ export default function DashboardPage() {
   const [fbLimitInput, setFbLimitInput] = useState("10");
   const [generating, setGenerating] = useState(false);
   const [fbResult, setFbResult] = useState<BatchFeedbackResult | null>(null);
+
+  // --- Publish results gate (v1.3.0) ---
+  const [published, setPublished] = useState<boolean | null>(null);
+  const [togglingPublish, setTogglingPublish] = useState(false);
+
+  const loadPublishState = useCallback(async () => {
+    try {
+      const settings = await fetchHackathonSettings(HACKATHON_ID);
+      setPublished(settings.results_published);
+    } catch {
+      // Non-fatal: the dashboard still works without the gate info.
+      setPublished(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPublishState();
+  }, [loadPublishState]);
 
   const load = useCallback(async () => {
     setLoadingBoard(true);
@@ -159,6 +179,23 @@ export default function DashboardPage() {
       );
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleTogglePublish(publish: boolean) {
+    setTogglingPublish(true);
+    setBoardError(null);
+    try {
+      const settings = await setResultsPublished(publish, HACKATHON_ID);
+      setPublished(settings.results_published);
+    } catch (err) {
+      setBoardError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not update the results-published gate."
+      );
+    } finally {
+      setTogglingPublish(false);
     }
   }
 
@@ -358,6 +395,35 @@ export default function DashboardPage() {
                   {r.team_name || r.submission_id}: {r.error}
                 </p>
               ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Publish results &amp; appeals</h2>
+        <p className="hint">
+          Publishing results opens the team appeal window. Before publishing,
+          make sure every team that should have one has received its feedback.
+        </p>
+        {published === null ? (
+          <p className="hint">Could not read the results-published gate.</p>
+        ) : (
+          <div className="inline-controls">
+            <p className={published ? "success" : "hint"}>
+              Results are currently{" "}
+              <b>{published ? "published" : "not published"}</b>.
+            </p>
+            <button
+              type="button"
+              disabled={togglingPublish}
+              onClick={() => void handleTogglePublish(!published)}
+            >
+              {togglingPublish
+                ? "Updating…"
+                : published
+                  ? "Unpublish results (close appeals)"
+                  : "Publish results (open appeals)"}
+            </button>
           </div>
         )}
       </section>

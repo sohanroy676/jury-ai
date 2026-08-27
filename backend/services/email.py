@@ -357,3 +357,111 @@ def send_results_notification(
         html_body=html_body,
         to_address=team_email,
     )
+
+
+# --- Appeal notifications (v1.3.0) ---------------------------------------
+
+
+def _appeal_submitted_content(
+    *, team_name: str, submission_id: str, reason: str
+) -> tuple[str, str, str]:
+    """Build (subject, text, html) for the appeal-received confirmation."""
+    team = team_name.strip()
+    link = f"{settings.frontend_url}/submissions/{submission_id}"
+    subject = f"Appeal received - {team}"
+    text = (
+        f"Hi {team},\n\n"
+        "We have received your appeal and it is now in the evaluator's queue.\n\n"
+        f"Your reason: {reason}\n\n"
+        "You will be notified once a final decision is logged.\n\n"
+        f"Submission: {link}\n\n- JuryAI\n"
+    )
+    html_body = (
+        '<html><body style="font-family:sans-serif;color:#1a1a1a">'
+        f"<p>Hi {_esc(team)},</p>"
+        "<p>We have received your appeal and it is now in the evaluator's "
+        "queue.</p>"
+        f"<p><b>Your reason:</b></p><p>{_esc(reason)}</p>"
+        "<p>You will be notified once a final decision is logged.</p>"
+        f'<p><a href="{_esc(link)}">View your submission</a></p>'
+        "<p>- JuryAI</p></body></html>"
+    )
+    return subject, text, html_body
+
+
+def _appeal_resolved_content(
+    *,
+    team_name: str,
+    submission_id: str,
+    decision: str,
+    decision_note: str,
+) -> tuple[str, str, str]:
+    """Build (subject, text, html) for the appeal-outcome email."""
+    team = team_name.strip()
+    link = f"{settings.frontend_url}/submissions/{submission_id}"
+    subject = f"Appeal {decision} - {team}"
+    headline = (
+        "Your appeal was upheld."
+        if decision == "upheld"
+        else "Your appeal was dismissed."
+    )
+    text = (
+        f"Hi {team},\n\n{headline}\n\n"
+        f"Decision: {decision}\n"
+        + (f"Evaluator note: {decision_note}\n" if decision_note else "")
+        + f"\nSubmission: {link}\n\n- JuryAI\n"
+    )
+    html_body = (
+        '<html><body style="font-family:sans-serif;color:#1a1a1a">'
+        f"<p>Hi {_esc(team)},</p>"
+        f"<h2>{_esc(headline)}</h2>"
+        f"<p><b>Decision</b>: {_esc(decision)}</p>"
+        + (
+            f"<p><b>Evaluator note</b>: {_esc(decision_note)}</p>"
+            if decision_note
+            else ""
+        )
+        + f'<p><a href="{_esc(link)}">View your submission</a></p>'
+        + "<p>- JuryAI</p></body></html>"
+    )
+    return subject, text, html_body
+
+
+def send_appeal_submitted(
+    *, team_name: str, team_email: str, submission_id: str, reason: str
+) -> EmailResult:
+    """Confirm an appeal was filed (non-blocking; never raises)."""
+    subject, text_body, html_body = _appeal_submitted_content(
+        team_name=team_name,
+        submission_id=submission_id,
+        reason=reason,
+    )
+    return _dispatch(
+        subject=subject,
+        text_body=text_body,
+        html_body=html_body,
+        to_address=team_email,
+    )
+
+
+def send_appeal_resolved(
+    *,
+    team_name: str,
+    team_email: str,
+    submission_id: str,
+    decision: str,
+    decision_note: str,
+) -> EmailResult:
+    """Notify the team of an appeal decision (non-blocking; never raises)."""
+    subject, text_body, html_body = _appeal_resolved_content(
+        team_name=team_name,
+        submission_id=submission_id,
+        decision=decision,
+        decision_note=decision_note,
+    )
+    return _dispatch(
+        subject=subject,
+        text_body=text_body,
+        html_body=html_body,
+        to_address=team_email,
+    )

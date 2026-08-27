@@ -6,7 +6,7 @@
 
 **v1.2.0 LIVE-VERIFIED & RELEASING (2026-08-26).** User confirmed: migrations applied, SMTP configured, real emails received — including the fixed explicit reject/shortlist wording. Full suites green on the release tree (pytest **392**, Vitest **45**). Branch stack `feature/v1.2.0-notifications` ← `feature/v1.2.0-batch-feedback` ← `fix/results-email-explicit-outcome` fast-forwards to `main`; tag `v1.2.0`; push approved by user this session. Delivered in v1.2.0: team_email collection (migration 0009 + portal field), confirmation + results emails over `EMAIL_PROVIDER=smtp|resend` (`services/email.py`, ADR-0004), one-click batch feedback (`POST /api/submissions/feedback-pending` + dashboard control), explicit shortlist/reject outcome copy in emails. Deadline reminder DEFERRED (needs roster/deadline model — see ROADMAP Next).
 
-**Single next step for the next session:** open a fresh session (it reads this memory-bank first), confirm `main`/`v1.2.0` tag state, and begin **v1.3.0 Appeal flow** per `docs/hackathon_evaluator_roadmap.md` §v1.3.0.
+**Current focus: v1.3.0 Appeal flow — IMPLEMENTED on `feature/v1.3.0-appeals`.** Backend complete (188 tests pass, ruff clean). Frontend complete (code follows conventions; vitest/eslint could not be run — Node.js not installed in this env). Ready for user review/merge. Next: commit per conventional-commits style, regenerate CHANGELOG via /commit workflow, update ROADMAP.md to move v1.3.0 from Now to Done.
 
 ## Recent decisions
 

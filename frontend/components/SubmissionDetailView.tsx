@@ -7,12 +7,16 @@ import NavLinks from "./NavLinks";
 import StageTracker from "./StageTracker";
 import {
   ApiError,
+  Appeal,
   CRITERIA,
   FeedbackRecord,
   SubmissionDetail,
   exportPdfUrl,
   fetchFeedback,
+  fetchHackathonSettings,
   fetchSubmission,
+  fetchSubmissionAppeal,
+  fileAppeal,
   triggerFeedback,
   triggerScore,
 } from "../lib/api";
@@ -32,6 +36,12 @@ export default function SubmissionDetailView({
   const [topNInput, setTopNInput] = useState("5");
   const [notice, setNotice] = useState<string | null>(null);
 
+  // --- Appeals (v1.3.0) ---
+  const [appeal, setAppeal] = useState<Appeal | null>(null);
+  const [resultsPublished, setResultsPublished] = useState(false);
+  const [appealReason, setAppealReason] = useState("");
+  const [filingAppeal, setFilingAppeal] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -40,6 +50,20 @@ export default function SubmissionDetailView({
       setDetail(data);
       const fb = await fetchFeedback(submissionId);
       setFeedback(fb.feedback);
+      // Appeal is best-effort: if the backend lacks the migration, the
+      // detail view still renders (appeal card degrades to unavailable).
+      try {
+        const settings = await fetchHackathonSettings("default");
+        setResultsPublished(settings.results_published);
+      } catch {
+        setResultsPublished(false);
+      }
+      try {
+        const appealData = await fetchSubmissionAppeal(submissionId);
+        setAppeal(appealData.appeal);
+      } catch {
+        setAppeal(null);
+      }
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -118,6 +142,33 @@ export default function SubmissionDetailView({
       );
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleFileAppeal() {
+    if (!appealReason.trim()) {
+      setError("Please explain why you are appealing the result.");
+      return;
+    }
+    setFilingAppeal(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await fileAppeal({
+        submissionId,
+        reason: appealReason.trim(),
+      });
+      setAppeal(result);
+      setAppealReason("");
+      setNotice("Appeal filed. An evaluator will review it.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unexpected error filing the appeal."
+      );
+    } finally {
+      setFilingAppeal(false);
     }
   }
 
@@ -243,6 +294,68 @@ export default function SubmissionDetailView({
           </div>
         ) : (
           <p className="hint">No feedback generated yet.</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Appeal</h2>
+        {appeal ? (
+          <div className="feedback-card">
+            <p>
+              <span
+                className={`badge ${
+                  appeal.status === "open"
+                    ? "badge-tie"
+                    : appeal.decision === "upheld"
+                      ? "badge-shortlist"
+                      : "badge-reject"
+                }`}
+              >
+                {appeal.status}
+                {appeal.decision ? ` · ${appeal.decision}` : ""}
+              </span>
+            </p>
+            <p>
+              <b>Your reason:</b> {appeal.reason}
+            </p>
+            {appeal.status === "resolved" && appeal.decision && (
+              <p>
+                <b>Decision:</b> {appeal.decision}
+                {appeal.decision_note ? ` — ${appeal.decision_note}` : ""}
+              </p>
+            )}
+          </div>
+        ) : !resultsPublished ? (
+          <p className="hint">
+            Appeals open once results are published.
+          </p>
+        ) : !feedback?.verdict ? (
+          <p className="hint">
+            Appeals open once your result and feedback are ready.
+          </p>
+        ) : (
+          <>
+            <p className="hint">
+              Unhappy with the result? File an appeal and an evaluator will
+              review it with the original scoring and feedback attached.
+            </p>
+            <div className="inline-controls">
+              <textarea
+                aria-label="Appeal reason"
+                value={appealReason}
+                onChange={(e) => setAppealReason(e.target.value)}
+                placeholder="Explain why you are contesting the result…"
+                rows={3}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleFileAppeal}
+              disabled={filingAppeal}
+            >
+              {filingAppeal ? "Filing…" : "File appeal"}
+            </button>
+          </>
         )}
       </section>
 

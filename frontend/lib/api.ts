@@ -301,6 +301,124 @@ export function generatePendingFeedback(
   );
 }
 
+// --- Appeals (v1.3.0) --------------------------------------------------------
+
+export type AppealStatus = "open" | "resolved";
+export type AppealDecision = "upheld" | "dismissed";
+
+// The original AI context the evaluator sees when deciding an appeal:
+// composite/rank/shortlist from the same ranking engine that produced the
+// result, plus the per-criterion scores/justifications and the feedback.
+export interface AppealContext {
+  team_name: string;
+  composite_score: number | null;
+  rank: number | null;
+  shortlisted: boolean | null;
+  scores: { criterion: string; score: number; justification: string }[];
+  feedback: {
+    strengths: string[];
+    weaknesses: string[];
+    suggestion: string;
+    verdict: "shortlist" | "reject";
+  } | null;
+}
+
+export interface Appeal {
+  id: string;
+  submission_id: string;
+  hackathon_id: string;
+  reason: string;
+  status: AppealStatus;
+  decision: AppealDecision | null;
+  decision_note: string;
+  evaluator: string;
+  created_at: string;
+  decided_at?: string | null;
+  context?: AppealContext;
+  notification?: {
+    appeal_email?: { status: string; reason?: string };
+  };
+}
+
+export function fileAppeal(input: {
+  submissionId: string;
+  reason: string;
+  contactEmail?: string;
+  hackathonId?: string;
+}): Promise<Appeal> {
+  return request<Appeal>("/api/appeals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      submission_id: input.submissionId,
+      reason: input.reason,
+      contact_email: input.contactEmail,
+      hackathon_id: input.hackathonId ?? "default",
+    }),
+  });
+}
+
+export function fetchAppeals(
+  status?: AppealStatus
+): Promise<{ appeals: Appeal[] }> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request<{ appeals: Appeal[] }>(`/api/appeals${q}`);
+}
+
+export function resolveAppeal(
+  appealId: string,
+  input: {
+    decision: AppealDecision;
+    decisionNote?: string;
+    evaluator: string;
+  }
+): Promise<{ appeal: Appeal; notification?: Appeal["notification"] }> {
+  return request(`/api/appeals/${encodeURIComponent(appealId)}/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      decision: input.decision,
+      decision_note: input.decisionNote ?? "",
+      evaluator: input.evaluator,
+    }),
+  });
+}
+
+export function fetchSubmissionAppeal(
+  submissionId: string
+): Promise<{ appeal: Appeal }> {
+  return request<{ appeal: Appeal }>(
+    `/api/appeals/submission/${encodeURIComponent(submissionId)}`
+  );
+}
+
+export interface HackathonSettings {
+  hackathon_id: string;
+  results_published: boolean;
+}
+
+export function fetchHackathonSettings(
+  hackathonId?: string
+): Promise<HackathonSettings> {
+  return request<HackathonSettings>(
+    `/api/hackathon/${encodeURIComponent(hackathonId ?? "default")}/settings`
+  );
+}
+
+export function setResultsPublished(
+  published: boolean,
+  hackathonId?: string
+): Promise<HackathonSettings> {
+  return request<HackathonSettings>(
+    `/api/hackathon/${encodeURIComponent(hackathonId ?? "default")}/results`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published }),
+    }
+  );
+}
+
 // --- Export URLs (direct downloads, no JSON wrapper) --------------------
 
 export function exportCsvUrl(

@@ -84,6 +84,14 @@
 - **Batch feedback mirrors batch scoring exactly.** `POST /api/submissions/feedback-pending` reuses the score-pending contract: pending-scan over the ranked board (completeness enforced by the engine itself), `limit` (default 10, le 50), sequential processing, per-item `HTTPException` isolation, `remaining = max(len(pending)-len(batch), 0)` (failed items stay pending and self-heal next run). The single-team route delegates to the SAME `_generate_one_feedback()` helper — refactor rule from `_score_one_submission` extends to feedback: single vs batch endpoints can never diverge.
 - **Prettier churn policy (re-verified)**: `npm run format` touched ~15 untouched files as CRLF-only noise; classify with `git diff --ignore-cr-at-eol --stat <file>` and `git checkout --` the no-content-diff ones so formatter churn never enters history.
 
+### v1.3.0 additions
+
+- **The appeal gate is a derived boolean, not a stored flag on submissions.** `hackathon_settings.results_published_at` is the operator-controlled switch (via PUT /api/hackathon/{id}/results); routes check `_results_published(hackathon_id)` and return 403 when NULL. Teams see this as "Appeals open once results are published" — no schema change to submissions.
+- **One-open-appeal-per-submission is enforced both in the route (pre-check → 409) and at the DB level (partial unique index on `(submission_id) WHERE status='open'`), matching the archive-before-insert redundancy philosophy.** A resolved appeal releases the slot; the team-facing view always returns the most recent appeal regardless of status.
+- **The evaluator queue attaches the ORIGINAL AI context** — composite/rank/shortlist are recomputed on the fly via `load_leaderboard` (the single ranking computation), plus per-criterion score justifications from the `scores` table and the feedback verdict. The evaluator never sees a stale snapshot.
+- **Appeal emails degrade gracefully** — `send_appeal_submitted` / `send_appeal_resolved` return `EmailResult` (never raise), fire via `asyncio.to_thread`, and fall back to the submission's `team_email` when no contact email is on the appeal. The route logs non-"sent" outcomes at WARNING and continues.
+- **v1.3.0 introduced the hackathon entity** (`hackathon_settings` table, key `hackathon_id text default 'default'`), seeding the data model the deadline-reminder feature (ROADMAP "Next") will build on.
+
 ## Things to avoid
 
 - **No hardcoded secrets.** Everything goes in `.env` (loaded via `python-dotenv`). `.env` and `.env.local` are in `.gitignore`.
