@@ -628,28 +628,30 @@ table tbody tr:last-child td {
 .score-bar__track {
   flex: 1;
   height: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-full);
   overflow: hidden;
-  min-width: 70px;
+  min-width: 60px;
+  display: block;
 }
 
 .score-bar__fill {
+  display: block;
   height: 100%;
   border-radius: var(--radius-full);
   transition: width var(--transition-normal);
 }
 
 .score-bar__fill--high {
-  background: linear-gradient(90deg, #10b981, #34d399);
+  background: linear-gradient(90deg, #10b981, #34d399) !important;
 }
 
 .score-bar__fill--medium {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
 }
 
 .score-bar__fill--low {
-  background: linear-gradient(90deg, #f43f5e, #fb7185);
+  background: linear-gradient(90deg, #f43f5e, #fb7185) !important;
 }
 
 .score-bar__value {

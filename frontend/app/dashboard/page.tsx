@@ -498,9 +498,9 @@ export default function DashboardPage() {
                                 title={`Override ${c.replace(/_/g, " ")} for ${row.team_name}`}
                                 onClick={() => openOverride(row, c)}
                               >
-                                <span className="score-bar" style={{ width: "100%" }}>
-                                  <span className="score-bar__track">
-                                    <span
+                                <div className="score-bar" style={{ width: "100%" }}>
+                                  <div className="score-bar__track">
+                                    <div
                                       className={`score-bar__fill ${
                                         value >= 8
                                           ? "score-bar__fill--high"
@@ -510,9 +510,9 @@ export default function DashboardPage() {
                                       }`}
                                       style={{ width: `${value * 10}%` }}
                                     />
-                                  </span>
+                                  </div>
                                   <span className="score-bar__value">{value}</span>
-                                </span>
+                                </div>
                               </button>
                             ) : (
                               <span style={{ color: "#64748b" }} aria-label="not scored">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { CRITERIA, Weights, fetchLeaderboard, saveRubric } from "../lib/api";
+import { CRITERIA, Weights, fetchRubric, saveRubric } from "../lib/api";
 import ErrorBanner from "./ErrorBanner";
 
 interface RubricBuilderProps {
@@ -20,8 +20,14 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchLeaderboard(trackId);
-      setRubric(data.rubric);
+      const data = await fetchRubric(trackId);
+      const defaultWeights: Weights = {
+        problem_fit: 0.25,
+        technical_depth: 0.25,
+        feasibility: 0.25,
+        innovation: 0.25,
+      };
+      setRubric(data.rubric ?? defaultWeights);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Could not load the rubric.";
