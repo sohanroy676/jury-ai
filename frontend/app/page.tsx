@@ -7,7 +7,9 @@ import {
   ApiError,
   fetchSubmission,
   fetchSubmissions,
+  listTracks,
   SubmissionRow,
+  TrackInfo,
   uploadSubmission,
 } from "../lib/api";
 
@@ -19,6 +21,10 @@ export default function Home() {
   const [teamName, setTeamName] = useState("");
   const [teamEmail, setTeamEmail] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [selectedTrack, setSelectedTrack] = useState("default");
+  const [tracks, setTracks] = useState<TrackInfo[]>([
+    { id: "default", name: "Default Track", created_at: "" },
+  ]);
   const [fileError, setFileError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -37,6 +43,16 @@ export default function Home() {
 
   useEffect(() => {
     void loadSubmissions();
+    void (async () => {
+      try {
+        const data = await listTracks();
+        if (data.tracks && data.tracks.length > 0) {
+          setTracks(data.tracks);
+        }
+      } catch {
+        // Fall back to default track
+      }
+    })();
   }, [loadSubmissions]);
 
   function validateFile(selected: File): string | null {
@@ -96,9 +112,18 @@ export default function Home() {
 
     setSubmitting(true);
     try {
-      const data = await uploadSubmission(teamName, recipient, file, {
+      const uploadOpts: { replaceExisting?: boolean; hackathonId?: string } = {
         replaceExisting,
-      });
+      };
+      if (selectedTrack && selectedTrack !== "default") {
+        uploadOpts.hackathonId = selectedTrack;
+      }
+      const data = await uploadSubmission(
+        teamName,
+        recipient,
+        file,
+        uploadOpts
+      );
 
       let sectionNote = "";
       try {
@@ -202,6 +227,21 @@ export default function Home() {
             onChange={(e) => setTeamName(e.target.value)}
             placeholder="e.g. QuantumQuokka"
           />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="track">Evaluation track</label>
+          <select
+            id="track"
+            value={selectedTrack}
+            onChange={(e) => setSelectedTrack(e.target.value)}
+          >
+            {tracks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.id})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">

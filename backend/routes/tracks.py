@@ -69,8 +69,7 @@ async def create_track(body: TrackRequest) -> dict:
         # Create default rubric for the track (equal weights)
         from agents.scoring.base import CRITERIA_NAMES
 
-        for criterion in CRITERIA_NAMES:
-            supabase.upsert_rubric(body.id, {criterion: 0.25})
+        supabase.upsert_rubric(body.id, {c: 0.25 for c in CRITERIA_NAMES})
 
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

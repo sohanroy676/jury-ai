@@ -46,9 +46,18 @@ function friendlyMessage(status: number, detail: unknown): string {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let options = init;
+  if (init?.body && typeof init.body === "string") {
+    const headers = new Headers(init.headers);
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    options = { ...init, headers };
+  }
+
   let resp: Response;
   try {
-    resp = await fetch(`${API_URL}${path}`, init);
+    resp = await fetch(`${API_URL}${path}`, options);
   } catch {
     throw new ApiError(0, "Network error — could not reach the backend.");
   }
@@ -189,12 +198,15 @@ export async function uploadSubmission(
   teamName: string,
   teamEmail: string,
   file: File,
-  options: { replaceExisting?: boolean } = {}
+  options: { replaceExisting?: boolean; hackathonId?: string } = {}
 ): Promise<UploadedSubmission> {
   const formData = new FormData();
   formData.append("team_name", teamName);
   formData.append("team_email", teamEmail);
   formData.append("file", file);
+  if (options.hackathonId) {
+    formData.append("hackathon_id", options.hackathonId);
+  }
   if (options.replaceExisting) {
     formData.append("replace_existing", "true");
   }
