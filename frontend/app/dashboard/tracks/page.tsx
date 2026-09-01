@@ -16,7 +16,19 @@ import {
 
 export default function TracksPage() {
   const [tracks, setTracks] = useState<TrackInfo[]>([]);
-  const [activeTrack, setActiveTrack] = useState("default");
+  const [activeTrack, setActiveTrackState] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("juryai_active_track") || "default";
+    }
+    return "default";
+  });
+
+  const setActiveTrack = useCallback((trackId: string) => {
+    setActiveTrackState(trackId);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("juryai_active_track", trackId);
+    }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newId, setNewId] = useState("");
@@ -44,7 +56,7 @@ export default function TracksPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTrack]);
+  }, [activeTrack, setActiveTrack]);
 
   useEffect(() => {
     void load();

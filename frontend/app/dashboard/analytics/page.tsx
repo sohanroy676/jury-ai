@@ -50,7 +50,19 @@ function getHeatmapColor(score: number): string {
 }
 
 export default function AnalyticsPage() {
-  const [activeTrack, setActiveTrack] = useState("default");
+  const [activeTrack, setActiveTrackState] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("juryai_active_track") || "default";
+    }
+    return "default";
+  });
+
+  const setActiveTrack = useCallback((trackId: string) => {
+    setActiveTrackState(trackId);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("juryai_active_track", trackId);
+    }
+  }, []);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [distributions, setDistributions] = useState<
     Record<string, DistributionBin[]>

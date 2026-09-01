@@ -42,7 +42,20 @@ interface OverrideTarget {
 }
 
 export default function DashboardPage() {
-  const [selectedTrack, setSelectedTrack] = useState<string>("default");
+  const [selectedTrack, setSelectedTrackState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("juryai_active_track") || "default";
+    }
+    return "default";
+  });
+
+  const setSelectedTrack = useCallback((trackId: string) => {
+    setSelectedTrackState(trackId);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("juryai_active_track", trackId);
+    }
+  }, []);
+
   const [board, setBoard] = useState<Leaderboard | null>(null);
   const [loadingBoard, setLoadingBoard] = useState(true);
   const [boardError, setBoardError] = useState<string | null>(null);
@@ -142,7 +155,8 @@ export default function DashboardPage() {
     setAppliedTopN(parsed);
   }
 
-  async function handleBatchScore() {
+  async function handleBatchScore(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     const limit = Number(batchLimitInput);
     if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
       setBoardError("Batch size must be a whole number between 1 and 50.");
@@ -152,7 +166,7 @@ export default function DashboardPage() {
     setBatchResult(null);
     setBoardError(null);
     try {
-      const result = await scorePending(limit);
+      const result = await scorePending(limit, { hackathonId: selectedTrack });
       setBatchResult(result);
       await load();
     } catch (err) {
@@ -164,7 +178,8 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleBatchFeedback() {
+  async function handleBatchFeedback(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     const limit = Number(fbLimitInput);
     if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
       setBoardError("Batch size must be a whole number between 1 and 50.");
