@@ -658,7 +658,7 @@ export default function DashboardPage() {
         <section className="card">
           <h2 className="card__title">Batch feedback</h2>
           <p className="hint">
-            Generate written feedback for teams that don't have it yet.
+            Generate written feedback for teams that do not have it yet.
           </p>
           <form onSubmit={handleBatchFeedback} className="inline-controls" style={{ marginTop: "1rem" }}>
             <label htmlFor="fb-limit">Batch size</label>

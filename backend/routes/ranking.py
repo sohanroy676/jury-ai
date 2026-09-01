@@ -44,8 +44,15 @@ def load_leaderboard(
     not configured (callers map that to HTTP 503).
     """
     configured = supabase.get_rubric(hackathon_id)
-    submissions = supabase.list_submissions(limit=MAX_RANKING_SUBMISSIONS)
-    score_rows = supabase.get_all_scores()
+    raw_submissions = supabase.list_submissions(limit=MAX_RANKING_SUBMISSIONS)
+    submissions = [
+        s for s in raw_submissions
+        if s.get("hackathon_id", "default") == hackathon_id or not s.get("hackathon_id")
+    ]
+    try:
+        score_rows = supabase.get_all_scores(hackathon_id)
+    except TypeError:
+        score_rows = supabase.get_all_scores()
 
     # A partially-configured rubric (e.g. hand-edited rows) falls back to
     # equal weights rather than producing misleading composites.

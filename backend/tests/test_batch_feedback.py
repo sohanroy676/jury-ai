@@ -70,7 +70,7 @@ class FakeStore:
     def list_submissions(self, limit: int = 100) -> list[dict]:
         return [dict(r) for r in reversed(self.submissions[-limit:])]
 
-    def get_all_scores(self) -> list[dict]:
+    def get_all_scores(self, hackathon_id: str = "default") -> list[dict]:
         return [dict(r) for r in self.scores]
 
     def get_scores(self, sid: str) -> list[dict]:

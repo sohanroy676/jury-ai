@@ -33,24 +33,35 @@ export default function SubmissionDetailView({
   const [topNInput, setTopNInput] = useState("5");
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchSubmission(submissionId);
-      setDetail(data);
-      const fb = await fetchFeedback(submissionId);
-      setFeedback(fb.feedback);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Unexpected error loading this submission."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [submissionId]);
+  const fetchData = useCallback(
+    async (showLoadingIndicator: boolean) => {
+      if (showLoadingIndicator) {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const data = await fetchSubmission(submissionId);
+        setDetail(data);
+        const fb = await fetchFeedback(submissionId);
+        setFeedback(fb.feedback);
+      } catch (err) {
+        if (showLoadingIndicator) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "Unexpected error loading this submission."
+          );
+        }
+      } finally {
+        if (showLoadingIndicator) {
+          setLoading(false);
+        }
+      }
+    },
+    [submissionId]
+  );
+
+  const load = useCallback(() => fetchData(true), [fetchData]);
 
   useEffect(() => {
     void load();
@@ -61,11 +72,11 @@ export default function SubmissionDetailView({
     if (pollBusy.current) return;
     pollBusy.current = true;
     try {
-      await load();
+      await fetchData(false);
     } finally {
       pollBusy.current = false;
     }
-  }, [load]);
+  }, [fetchData]);
 
   const verdict = feedback?.verdict ?? null;
   useEffect(() => {

@@ -73,7 +73,7 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
   }
 
   if (loading) {
-    return <p className="hint">Loading rubric for track '{trackId}'…</p>;
+    return <p className="hint">Loading rubric for track &apos;{trackId}&apos;…</p>;
   }
 
   if (!rubric) {
