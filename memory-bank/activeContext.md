@@ -4,11 +4,9 @@
 
 ## Current focus
 
-**v2.3.0 + v2.1.0 BOTH MERGED TO MAIN (2026-09-01).** Explainability (cited excerpts on every score) and evaluator overrides (override endpoint + modal + flagged-image review queue + dashboard redesign) are complete, tested, and fast-forward merged. Latest commit on `main`: `5fe0ce0`. NOT yet pushed — awaiting user approval. Migrations 0010 + 0011 need manual application in Supabase SQL Editor (see docs/setup.md). Full suites green: pytest 405 (needs `--ignore=agents/tests/test_image_classify.py` for the torch gap in this venv), vitest 52, ruff clean, next lint clean.
+**v2.3.0 + v2.1.0 + v1.3.0 ALL MERGED TO MAIN (2026-09-01).** Explainability (cited excerpts), evaluator overrides (override endpoint + modal + review queue), and appeal flow (appeal form + evaluator queue + resolution emails) are complete, tested, and fast-forward merged. Latest commit on `main`: `504031c`. NOT yet pushed — awaiting user approval. Migrations 0010 + 0011 + 0012 need manual application in Supabase SQL Editor (see docs/setup.md). Full suites green: pytest 195 (needs `--ignore=agents/tests/test_image_classify.py` for the torch gap in this venv), vitest 25, ruff clean, next lint clean.
 
-**Single next step for the next session:** fresh session per `feature/v2.1.0-evaluator-override`→`main` state, then begin **v2.2.0 Audit trail** (migration 0012 `audit_log` table, `backend/services/audit.py`, timeline UI in SubmissionDetailView) — v2.1.0's override provenance columns were designed to feed it. Remaining in the approved batch after that: v1.3.0 appeal flow, v3.1.0 anomaly flagging, v3.2.0 analytics dashboard, then roadmap reorder + changelog + version bump to 2.1.0 for release.
-
-**Single next step for the next session:** open a fresh session (it reads this memory-bank first), confirm `main`/`v1.2.0` tag state, and begin **v1.3.0 Appeal flow** per `docs/hackathon_evaluator_roadmap.md` §v1.3.0.
+**Single next step for the next session:** open a fresh session (it reads this memory-bank first), confirm `main` state, and begin **v2.6.0 Bias & anomaly flagging** (migration 0013 `confidence` column, `agents/analysis/flags.py` pure module, flag display in leaderboard + detail view). Remaining in the approved batch after that: v3.2.0 analytics dashboard, then roadmap reorder + changelog + version bump for release.
 
 ## Recent decisions
 
