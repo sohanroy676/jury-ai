@@ -279,6 +279,77 @@ export function overrideScore(
   );
 }
 
+// --- v1.3.0: appeals -----------------------------------------------------
+
+export type AppealStatus =
+  | "pending"
+  | "under_review"
+  | "upheld"
+  | "overturned";
+
+export interface Appeal {
+  id: string;
+  submission_id: string;
+  appeal_text: string;
+  status: AppealStatus;
+  evaluator_notes?: string | null;
+  resolved_by?: string | null;
+  created_at?: string;
+  resolved_at?: string | null;
+}
+
+export interface AppealQueueItem extends Appeal {
+  submission?: SubmissionRow;
+  scores?: ScoreRow[] | null;
+  feedback?: FeedbackRecord | null;
+}
+
+export interface AppealResponse {
+  submission_id: string;
+  appeal: Appeal | null;
+}
+
+export interface AppealQueueResponse {
+  appeals: AppealQueueItem[];
+}
+
+export function fileAppeal(
+  submissionId: string,
+  appealText: string
+): Promise<Appeal & { notification?: unknown }> {
+  return request(
+    `/api/submissions/${encodeURIComponent(submissionId)}/appeal`,
+    { method: "POST", body: JSON.stringify({ appeal_text: appealText }) }
+  );
+}
+
+export function fetchAppeal(submissionId: string): Promise<AppealResponse> {
+  return request(
+    `/api/submissions/${encodeURIComponent(submissionId)}/appeal`
+  );
+}
+
+export function fetchAppeals(
+  status?: AppealStatus
+): Promise<AppealQueueResponse> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/api/appeals${qs}`);
+}
+
+export function resolveAppeal(
+  appealId: string,
+  body: {
+    status: "under_review" | "upheld" | "overturned";
+    evaluator_notes: string;
+    resolved_by: string;
+  }
+): Promise<Appeal & { notification?: unknown }> {
+  return request(`/api/appeals/${encodeURIComponent(appealId)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
 export function triggerFeedback(
   submissionId: string,
   options: { hackathonId?: string; topN?: number } = {}

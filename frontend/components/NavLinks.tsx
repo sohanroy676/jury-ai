@@ -7,6 +7,8 @@ export default function NavLinks() {
       <Link href="/">Upload portal</Link>
       {" · "}
       <Link href="/dashboard">Evaluator dashboard</Link>
+      {" · "}
+      <Link href="/dashboard/appeals">Appeals</Link>
     </nav>
   );
 }

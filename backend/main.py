@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
 from backend.routes import (
+    appeals,
     export,
     feedback,
     override,
@@ -36,6 +37,7 @@ app.include_router(ranking.router)
 app.include_router(feedback.router)
 app.include_router(export.router)
 app.include_router(override.router)
+app.include_router(appeals.router)
 
 
 @app.get("/health")

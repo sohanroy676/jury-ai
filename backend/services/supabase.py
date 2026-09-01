@@ -615,3 +615,94 @@ def get_feedback(submission_id: str) -> dict | None:
         return None
 
     return result.data[0]
+
+
+# --- Appeals (v1.3.0) -----------------------------------------------------
+
+
+def insert_appeal(submission_id: str, appeal_text: str) -> dict:
+    """File a new appeal for a submission (one live appeal, unique on id)."""
+    client = get_client()
+
+    result = (
+        client.table("appeals")
+        .insert({"submission_id": submission_id, "appeal_text": appeal_text})
+        .execute()
+    )
+    return (result.data or [None])[0]
+
+
+def get_appeal(submission_id: str) -> dict | None:
+    """Fetch the current appeal for a submission (or None)."""
+    client = get_client()
+
+    result = (
+        client.table("appeals")
+        .select("*")
+        .eq("submission_id", submission_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return None
+    return result.data[0]
+
+
+def get_appeal_by_id(appeal_id: str) -> dict | None:
+    """Fetch a single appeal row by its id (or None)."""
+    client = get_client()
+
+    result = (
+        client.table("appeals")
+        .select("*")
+        .eq("id", appeal_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return None
+    return result.data[0]
+
+
+def list_appeals(status: str | None = None) -> list[dict]:
+    """List appeals for the evaluator queue, oldest first.
+
+    Args:
+        status: Optional filter ('pending', 'under_review', 'upheld',
+            'overturned').
+    """
+    client = get_client()
+
+    query = client.table("appeals").select("*").order("created_at")
+    if status:
+        query = query.eq("status", status)
+    result = query.execute()
+    return list(result.data or [])
+
+
+def update_appeal(
+    appeal_id: str,
+    *,
+    status: str,
+    evaluator_notes: str,
+    resolved_by: str,
+    resolved_at: str | None,
+) -> dict | None:
+    """Update an appeal's resolution fields.
+
+    Returns the updated row, or ``None`` when no appeal matches.
+    """
+    client = get_client()
+
+    update: dict = {
+        "status": status,
+        "evaluator_notes": evaluator_notes,
+        "resolved_by": resolved_by,
+    }
+    # resolved_at is stamped exactly once when the appeal reaches a terminal
+    # state; intermediate states leave it untouched (still null).
+    if resolved_at:
+        update["resolved_at"] = resolved_at
+
+    result = client.table("appeals").update(update).eq("id", appeal_id).execute()
+    return (result.data or [None])[0]

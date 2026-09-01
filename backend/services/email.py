@@ -357,3 +357,74 @@ def send_results_notification(
         html_body=html_body,
         to_address=team_email,
     )
+
+
+# --- Appeal notifications (v1.3.0) -----------------------------------------
+
+
+def send_appeal_confirmation(
+    *,
+    team_name: str,
+    team_email: str,
+    appeal_id: str,
+) -> EmailResult:
+    """Confirm that an appeal was filed and is in the evaluator queue."""
+    team = team_name.strip()
+    subject = f"Appeal received - {team}"
+    text = (
+        f"Hi {team},\n\n"
+        "JuryAI received your appeal and it is now in the evaluator queue.\n"
+        "An evaluator will review the original AI scores and feedback, and\n"
+        "you will be notified of the final decision.\n\n"
+        f"  Appeal reference : {appeal_id}\n\n"
+        "- JuryAI\n"
+    )
+    html_body = (
+        '<html><body style="font-family:sans-serif;color:#1a1a1a">'
+        f"<p>Hi {_esc(team)},</p>"
+        "<p>JuryAI received your appeal and it is now in the evaluator "
+        "queue. An evaluator will review the original AI scores and "
+        "feedback, and you will be notified of the final decision.</p>"
+        f"<p><b>Appeal reference:</b> {_esc(appeal_id)}</p>"
+        "<p>- JuryAI</p></body></html>"
+    )
+    return _dispatch(
+        subject=subject,
+        text_body=text,
+        html_body=html_body,
+        to_address=team_email,
+    )
+
+
+def send_appeal_resolution(
+    *,
+    team_name: str,
+    team_email: str,
+    decision: str,
+    evaluator_notes: str,
+) -> EmailResult:
+    """Deliver the final appeal decision to the team."""
+    team = team_name.strip()
+    decision_label = "upheld" if decision == "upheld" else "overturned"
+    subject = f"Appeal decision - {team}"
+    text = (
+        f"Hi {team},\n\n"
+        f"Your appeal has been reviewed. The final decision is: "
+        f"{decision_label.upper()}.\n\n"
+        f"Evaluator notes: {evaluator_notes or 'None provided.'}\n\n"
+        "- JuryAI\n"
+    )
+    html_body = (
+        '<html><body style="font-family:sans-serif;color:#1a1a1a">'
+        f"<p>Hi {_esc(team)},</p>"
+        f"<p>Your appeal has been reviewed. The final decision is: "
+        f"<b>{_esc(decision_label.upper())}</b>.</p>"
+        f"{_outcome_note_html(evaluator_notes)}"
+        "<p>- JuryAI</p></body></html>"
+    )
+    return _dispatch(
+        subject=subject,
+        text_body=text,
+        html_body=html_body,
+        to_address=team_email,
+    )

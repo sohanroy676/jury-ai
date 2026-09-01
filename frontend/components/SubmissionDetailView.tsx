@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import AppealPanel from "./AppealPanel";
 import ErrorBanner from "./ErrorBanner";
 import NavLinks from "./NavLinks";
 import StageTracker from "./StageTracker";
@@ -276,6 +277,8 @@ export default function SubmissionDetailView({
           <p className="hint">No feedback generated yet.</p>
         )}
       </section>
+
+      <AppealPanel submissionId={submissionId} feedback={feedback} />
 
       {detail?.flagged_images && detail.flagged_images.length > 0 && (
         <section className="card">
