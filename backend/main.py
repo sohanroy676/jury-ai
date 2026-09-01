@@ -4,7 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
-from backend.routes import export, feedback, ranking, scoring, submissions
+from backend.routes import (
+    export,
+    feedback,
+    override,
+    ranking,
+    scoring,
+    submissions,
+)
 from version import APP_VERSION
 
 app = FastAPI(
@@ -28,6 +35,7 @@ app.include_router(scoring.router)
 app.include_router(ranking.router)
 app.include_router(feedback.router)
 app.include_router(export.router)
+app.include_router(override.router)
 
 
 @app.get("/health")

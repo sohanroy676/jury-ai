@@ -199,7 +199,21 @@ export default function SubmissionDetailView({
               {scores.map((s) => (
                 <tr key={s.criterion}>
                   <td>{s.criterion.replace(/_/g, " ")}</td>
-                  <td>{s.score}</td>
+                  <td>
+                    <strong>{s.score}</strong>
+                    {s.overridden_at != null &&
+                      typeof s.original_score === "number" && (
+                        <span
+                          className="override-meta"
+                          title={`AI originally scored ${s.original_score}`}
+                        >
+                          <br />
+                          <span className="badge badge-tie">
+                            was {s.original_score} (AI)
+                          </span>
+                        </span>
+                      )}
+                  </td>
                   <td>
                     {s.justification}
                     {s.cited_excerpt ? (
@@ -211,30 +225,13 @@ export default function SubmissionDetailView({
                         No citation provided for this score.
                       </blockquote>
                     )}
+                    {s.overridden_by && (
+                      <p className="override-provenance">
+                        Overridden by <strong>{s.overridden_by}</strong>
+                        {s.override_reason ? `: “${s.override_reason}”` : ""}
+                      </p>
+                    )}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="hint">Not scored yet.</p>
-        )}
-        <h3>Criterion scores</h3>
-        {scores.length > 0 ? (
-          <table className="scores">
-            <thead>
-              <tr>
-                <th>Criterion</th>
-                <th>Score</th>
-                <th>Justification</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scores.map((s) => (
-                <tr key={s.criterion}>
-                  <td>{s.criterion.replace(/_/g, " ")}</td>
-                  <td>{s.score}</td>
-                  <td>{s.justification}</td>
                 </tr>
               ))}
             </tbody>
@@ -279,6 +276,43 @@ export default function SubmissionDetailView({
           <p className="hint">No feedback generated yet.</p>
         )}
       </section>
+
+      {detail?.flagged_images && detail.flagged_images.length > 0 && (
+        <section className="card">
+          <h2>
+            Images flagged for review{" "}
+            <span className="badge badge-tie">
+              {detail.flagged_images.length}
+            </span>
+          </h2>
+          <p className="hint">
+            The vision router could not confidently classify or describe these
+            images. Please verify them manually.
+          </p>
+          <div className="review-queue">
+            {detail.flagged_images.map((img, i) => (
+              <div className="review-card" key={i}>
+                <div className="review-meta">
+                  <span className="badge badge-tie">needs review</span>
+                  {img.page != null && <span>page {img.page}</span>}
+                  {img.slide != null && <span>slide {img.slide}</span>}
+                  {img.classification && (
+                    <span>guessed: {img.classification}</span>
+                  )}
+                  {typeof img.confidence === "number" && (
+                    <span>{Math.round(img.confidence * 100)}% confidence</span>
+                  )}
+                </div>
+                <p className="review-description">
+                  {img.description || (
+                    <em>No description was generated for this image.</em>
+                  )}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="card">
         <h2>Parsed text</h2>

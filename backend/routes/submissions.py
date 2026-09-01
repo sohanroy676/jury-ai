@@ -226,4 +226,18 @@ async def read_submission(submission_id: str) -> dict:
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    return {"submission": submission, "parsed": parsed, "scores": scores}
+    # v2.1.0: images the CLIP router flagged as low-confidence or
+    # undescribed are surfaced for evaluator review. Fails soft — a
+    # malformed image_descriptions payload must not break the detail view.
+    flagged_images: list[dict] = []
+    if parsed:
+        for desc in parsed.get("image_descriptions") or []:
+            if isinstance(desc, dict) and desc.get("needs_human_review"):
+                flagged_images.append(desc)
+
+    return {
+        "submission": submission,
+        "parsed": parsed,
+        "scores": scores,
+        "flagged_images": flagged_images,
+    }

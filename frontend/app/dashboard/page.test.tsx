@@ -21,6 +21,7 @@ vi.mock("../../lib/api", () => {
         : `http://test/export.csv?hackathon_id=${hackathonId}`
     ),
     fetchRankings: vi.fn(),
+    overrideScore: vi.fn(),
     saveRubric: vi.fn(),
     scorePending: vi.fn(),
     generatePendingFeedback: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock("../../components/NavLinks", () => ({ default: () => null }));
 
 import * as api from "../../lib/api";
 
+const mockOverrideScore = api.overrideScore as ReturnType<typeof vi.fn>;
 const mockRankings = api.fetchRankings as ReturnType<typeof vi.fn>;
 const mockSaveRubric = api.saveRubric as ReturnType<typeof vi.fn>;
 const mockScorePending = api.scorePending as ReturnType<typeof vi.fn>;
@@ -306,5 +308,191 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("alert").textContent).toContain(
       "Supabase credentials are missing."
     );
+  });
+
+  // --- v2.1.0: overrides --------------------------------------------------
+
+  it("opens the override modal with the clicked score pre-filled", async () => {
+    await renderDashboard();
+
+    // Moonshot's problem_fit score cell (value 9).
+    const cells = screen.getAllByTitle(/Override problem fit for Moonshot/);
+    fireEvent.click(cells[0]);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("Moonshot");
+    expect(dialog.textContent).toContain("problem fit");
+    expect(dialog.textContent).toContain("AI scored 9");
+    expect(
+      (screen.getByLabelText("New score (1–10)") as HTMLInputElement).value
+    ).toBe("9");
+  });
+
+  it("blocks submission until the reason reaches 10 characters", async () => {
+    await renderDashboard();
+
+    fireEvent.click(
+      screen.getAllByTitle(/Override problem fit for Moonshot/)[0]
+    );
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("New score (1–10)"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText(/Reason/), {
+      target: { value: "too short" },
+    });
+    fireEvent.change(screen.getByLabelText("Your name or email"), {
+      target: { value: "alice@example.com" },
+    });
+
+    const save = screen.getByRole("button", { name: /save override/i });
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(mockOverrideScore).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(/Reason/), {
+      target: { value: "The demo clearly shows market fit." },
+    });
+    expect((save as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("submits a valid override, shows the new rank, and refreshes", async () => {
+    mockOverrideScore.mockResolvedValue({
+      submission_id: "id-1",
+      criterion: "problem_fit",
+      updated_score: { score: 3 },
+      rank_context: { rank: 2, composite_score: 6.5 },
+    });
+    await renderDashboard();
+
+    fireEvent.click(
+      screen.getAllByTitle(/Override problem fit for Moonshot/)[0]
+    );
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("New score (1–10)"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText(/Reason/), {
+      target: { value: "The demo clearly shows market fit." },
+    });
+    fireEvent.change(screen.getByLabelText("Your name or email"), {
+      target: { value: "alice@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save override/i }));
+
+    await waitFor(() =>
+      expect(mockOverrideScore).toHaveBeenCalledWith("id-1", "problem_fit", {
+        score: 3,
+        reason: "The demo clearly shows market fit.",
+        evaluator: "alice@example.com",
+      })
+    );
+    // Toast announces the rank consequence of the change.
+    await screen.findByText((content) =>
+      content.includes("now rank 2 (composite 6.50)")
+    );
+    // The board reloads after the override.
+    await waitFor(() => expect(mockRankings).toHaveBeenCalledTimes(2));
+    // The modal is gone.
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("surfaces override API errors inside the modal", async () => {
+    mockOverrideScore.mockRejectedValue(
+      new api.ApiError(
+        409,
+        "Submission has no 'problem_fit' score to override."
+      )
+    );
+    await renderDashboard();
+
+    fireEvent.click(
+      screen.getAllByTitle(/Override problem fit for Moonshot/)[0]
+    );
+    await screen.findByRole("dialog");
+
+    fireEvent.change(screen.getByLabelText("New score (1–10)"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText(/Reason/), {
+      target: { value: "The demo clearly shows market fit." },
+    });
+    fireEvent.change(screen.getByLabelText("Your name or email"), {
+      target: { value: "alice@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save override/i }));
+
+    const alerts = await screen.findAllByRole("alert");
+    expect(
+      alerts.some((a) => a.textContent?.includes("no 'problem_fit' score"))
+    ).toBe(true);
+    // Modal stays open so the evaluator can retry.
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("closes the override modal on cancel without calling the API", async () => {
+    await renderDashboard();
+
+    fireEvent.click(
+      screen.getAllByTitle(/Override problem fit for Moonshot/)[0]
+    );
+    await screen.findByRole("dialog");
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mockOverrideScore).not.toHaveBeenCalled();
+  });
+
+  // --- v2.1.0: pagination -------------------------------------------------
+
+  function buildBoard(n: number) {
+    return {
+      ...BOARD,
+      ranked: Array.from({ length: n }, (_, i) => ({
+        rank: i + 1,
+        submission_id: `id-${i + 1}`,
+        team_name: `Team ${i + 1}`,
+        composite_score: 5 + i / 10,
+        criterion_scores: {
+          problem_fit: 5,
+          technical_depth: 5,
+          feasibility: 5,
+          innovation: 5,
+        },
+        shortlisted: false,
+        tied_on_composite: false,
+      })),
+      scored_count: n,
+      unscored_count: 0,
+      partial_count: 0,
+    };
+  }
+
+  it("paginates the leaderboard and navigates pages", async () => {
+    mockRankings.mockResolvedValue(buildBoard(60));
+    await renderDashboard();
+
+    // Default page size 25 shows only the first 25 teams.
+    expect(screen.getByText("Team 1")).toBeTruthy();
+    expect(screen.queryByText("Team 26")).toBeNull();
+    expect(screen.getByText("Page 1 of 3")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /next ›/i }));
+    expect(screen.getByText("Team 26")).toBeTruthy();
+    expect(screen.queryByText("Team 1")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /first page/i }));
+    expect(screen.getByText("Team 1")).toBeTruthy();
+  });
+
+  it("shows every team on one page for short boards with no pager", async () => {
+    mockRankings.mockResolvedValue(buildBoard(2));
+    await renderDashboard();
+
+    // Two teams fit on page 1 of 25 — no pagination indicator needed.
+    expect(screen.getByText("Team 1")).toBeTruthy();
+    expect(screen.getByText("Team 2")).toBeTruthy();
+    expect(screen.queryByText("Page 1 of 1")).toBeNull();
   });
 });

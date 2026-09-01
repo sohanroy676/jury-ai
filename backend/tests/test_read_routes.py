@@ -103,3 +103,57 @@ def test_detail_404_on_malformed_uuid_without_db_call(monkeypatch):
     resp = client.get("/api/submissions/not-a-uuid")
     assert resp.status_code == 404
     assert called == []  # rejected before any Postgres round-trip
+
+
+# --- v2.1.0: needs_human_review image surfacing -------------------------
+
+
+def test_detail_surfaces_only_flagged_images(monkeypatch):
+    flagged = {
+        "page": 3,
+        "classification": "unknown",
+        "confidence": 0.4,
+        "description": None,
+        "needs_human_review": True,
+    }
+    confident = {
+        "page": 1,
+        "classification": "architecture",
+        "confidence": 0.95,
+        "description": "Three-tier layout.",
+        "needs_human_review": False,
+    }
+    monkeypatch.setattr(
+        supabase,
+        "get_parsed_submission",
+        lambda sid: {**PARSED_ROW, "image_descriptions": [confident, flagged]},
+    )
+    resp = client.get(f"/api/submissions/{SUBMISSION_ID}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["flagged_images"] == [flagged]
+
+
+def test_detail_flagged_images_empty_when_no_images():
+    resp = client.get(f"/api/submissions/{SUBMISSION_ID}")
+    assert resp.status_code == 200
+    assert resp.json()["flagged_images"] == []
+
+
+def test_detail_flagged_images_empty_when_parse_missing(monkeypatch):
+    monkeypatch.setattr(supabase, "get_parsed_submission", lambda sid: None)
+    resp = client.get(f"/api/submissions/{SUBMISSION_ID}")
+    assert resp.status_code == 200
+    assert resp.json()["flagged_images"] == []
+
+
+def test_detail_flagged_images_tolerates_malformed_payload(monkeypatch):
+    """A malformed image_descriptions payload must not 500 the detail view."""
+    monkeypatch.setattr(
+        supabase,
+        "get_parsed_submission",
+        lambda sid: {**PARSED_ROW, "image_descriptions": ["oops", 42, None]},
+    )
+    resp = client.get(f"/api/submissions/{SUBMISSION_ID}")
+    assert resp.status_code == 200
+    assert resp.json()["flagged_images"] == []

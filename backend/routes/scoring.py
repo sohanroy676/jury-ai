@@ -68,18 +68,6 @@ async def _score_one_submission(submission_id: str) -> dict:
             for s in result.scores
         ],
     }
-    return {
-        "submission_id": submission_id,
-        "agent_version": result.agent_version,
-        "scores": [
-            {
-                "criterion": s.criterion,
-                "score": s.score,
-                "justification": s.justification,
-            }
-            for s in result.scores
-        ],
-    }
 
 
 @router.post("/submissions/{submission_id}/score", status_code=200)

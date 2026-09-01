@@ -397,6 +397,61 @@ def get_scores(submission_id: str) -> list[dict]:
 
     return list(result.data or [])
 
+def override_score(
+    submission_id: str,
+    criterion: str,
+    new_score: int,
+    evaluator: str,
+    reason: str,
+) -> dict | None:
+    """Apply an evaluator override to a submission's score row (v2.1.0).
+
+    Edits the existing score row IN PLACE — the ranking engine always
+    reads live rows, so the next leaderboard build reflects this
+    immediately. The first override on a row preserves the AI's original
+    score in ``original_score``; later overrides keep the earliest
+    original and overwrite the rest.
+
+    Args:
+        submission_id: The UUID of the parent submission row.
+        criterion: One of the four criteria (validated upstream).
+        new_score: Integer 1-10 (validated upstream).
+        evaluator: Free-text evaluator identity (name or email).
+        reason: Required human justification (validated upstream).
+
+    Returns:
+        The updated row as a dict, or ``None`` when no matching score
+        row exists (unknown submission or criterion not yet scored).
+    """
+    client = get_client()
+
+    current = (
+        client.table("scores")
+        .select("id, score, original_score")
+        .eq("submission_id", submission_id)
+        .eq("criterion", criterion)
+        .order("scored_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not current.data:
+        return None
+    row = current.data[0]
+
+    update: dict = {
+        "score": new_score,
+        "overridden_at": datetime.now(timezone.utc).isoformat(),
+        "overridden_by": evaluator,
+        "override_reason": reason,
+    }
+    # Preserve the AI's original judgment exactly once.
+    if row.get("original_score") is None:
+        update["original_score"] = row["score"]
+
+    result = client.table("scores").update(update).eq("id", row["id"]).execute()
+    return result.data[0] if result.data else None
+
+
 
 # --- Rubric config + ranking inputs (v0.6.0) --------------------------
 

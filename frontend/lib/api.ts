@@ -98,11 +98,11 @@ export interface ScoreRow {
   score: number;
   justification: string;
   cited_excerpt?: string;
-}
-export interface ScoreRow {
-  criterion: string;
-  score: number;
-  justification: string;
+  // v2.1.0 override provenance (null until a human adjusts the score).
+  original_score?: number | null;
+  overridden_at?: string | null;
+  overridden_by?: string | null;
+  override_reason?: string | null;
 }
 
 export interface ParsedInfo {
@@ -111,10 +111,22 @@ export interface ParsedInfo {
   source_format?: string;
 }
 
+// v2.1.0: an image the CLIP router flagged for human confirmation
+// (low classification confidence or a failed vision description).
+export interface FlaggedImage {
+  page?: number;
+  slide?: number;
+  classification?: string;
+  confidence?: number;
+  description?: string | null;
+  needs_human_review?: boolean;
+}
+
 export interface SubmissionDetail {
   submission: SubmissionRow;
   parsed: ParsedInfo | null;
   scores: ScoreRow[] | null;
+  flagged_images?: FlaggedImage[];
 }
 
 export interface FeedbackRecord {
@@ -242,6 +254,28 @@ export function triggerScore(submissionId: string): Promise<ScoreResponse> {
   return request<ScoreResponse>(
     `/api/submissions/${encodeURIComponent(submissionId)}/score`,
     { method: "POST" }
+  );
+}
+
+// --- v2.1.0: evaluator score overrides ---------------------------------
+
+export interface OverrideResponse {
+  submission_id: string;
+  criterion: string;
+  updated_score: ScoreRow;
+  rank_context: Partial<RankedRow>;
+}
+
+export function overrideScore(
+  submissionId: string,
+  criterion: Criterion,
+  body: { score: number; reason: string; evaluator: string }
+): Promise<OverrideResponse> {
+  return request<OverrideResponse>(
+    `/api/submissions/${encodeURIComponent(submissionId)}/scores/${encodeURIComponent(
+      criterion
+    )}`,
+    { method: "PUT", body: JSON.stringify(body) }
   );
 }
 

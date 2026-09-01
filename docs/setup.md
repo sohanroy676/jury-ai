@@ -36,6 +36,8 @@ Apply each migration file from `infra/migrations/` **in filename order**:
    - `0007_create_feedback.sql` — creates the `feedback` table *(v0.7.0)*
    - `0008_allow_resubmission.sql` — adds `superseded_at` for re-submission history *(v1.1.0)*
    - `0009_add_team_email.sql` — adds the `team_email` column for notifications *(v1.2.0)*
+   - `0010_add_score_citations.sql` — adds `cited_excerpt` for explainability *(v2.3.0)*
+   - `0011_add_override_tracking.sql` — adds override provenance columns to `scores` *(v2.1.0)*
 3. After all migrations you should see the tables under **Table Editor**: `submissions`, `parsed_submissions`, `scores`, `image_cache`, `rubric_config`, `feedback`.
 
 
