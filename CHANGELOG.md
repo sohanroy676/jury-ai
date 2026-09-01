@@ -3,6 +3,26 @@
 All notable changes to this project are documented here.
 Format follows Keep a Changelog. Generated from Conventional Commits — regenerate via `/commit` workflow, do not hand-edit.
 
+## [v3.2.0] - 2026-09-01
+
+### Features
+
+* **analytics:** Add analytics dashboard with score distributions, criterion heatmap, and submission funnel
+* **ui:** Modern dark glassmorphism design system overhaul with HSL/gradient progress bar fills
+* **tracks:** Track selector on evaluator dashboard and track persistence via sessionStorage
+
+### Bug Fixes
+
+* **dashboard:** Prevent form submit page reloads and maintain active track state
+* **rubric:** Fix fetchLeaderboard import error in RubricBuilder
+* **polling:** Make submission detail background polling truly quiet to prevent unmount flickers
+
+## [v3.1.0] - 2026-09-01
+
+### Features
+
+* **tracks:** Multi-track scoping support for submissions, rubrics, rankings, and analytics
+
 ## [v1.2.0] - 2026-08-26
 
 ### Bug Fixes

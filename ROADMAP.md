@@ -5,10 +5,11 @@
 ## Now
 
 - **v2.6.0 Bias & anomaly flagging** (docs/hackathon_evaluator_roadmap.md §v2.6.0): `confidence` column on scores (migration 0013), pure `agents/analysis/flags.py` module (high variance, score outliers, low confidence), flag display in leaderboard + detail view.
-- **v3.2.0 Analytics dashboard** (docs/hackathon_evaluator_roadmap.md §v3.2.0): score distributions, criterion heatmap, submission funnel.
 
 ## Done
 
+- v3.2.0 — Analytics Dashboard & UI Overhaul *(SHIPPED 2026-09-01)*: Full dark glassmorphism design system (`Outfit`, `Inter`, `JetBrains_Mono`), score distributions, criterion heatmap, submission funnel (`/dashboard/analytics`), track rubrics (`/dashboard/tracks`), quiet background polling, criterion progress bars with HSL/gradient fills, session-persistent track selection (`sessionStorage`). pytest 432 / vitest 52.
+- v3.1.0 — Multi-Track Scoping *(SHIPPED 2026-09-01)*: Track creation, portal track selector, evaluator dashboard track selector, track-scoped rubric configuration (`PUT /api/rubrics/{trackId}`), track-scoped rankings (`GET /api/rankings?hackathon_id=...`), track-scoped export. pytest 432 / vitest 52.
 - v1.3.0 — Appeal flow *(MERGED to `main` 2026-09-01, commit `504031c`)*: teams file appeals after results published; evaluator queue with AI scores + feedback attached; resolution with notes + email notification. Migration `0012`. pytest 195 / vitest 25.
 - v2.1.0 — Evaluator dashboard enhancements *(MERGED to `main` 2026-09-01, commit `5fe0ce0`)*: manual score override with REQUIRED justification (`PUT /api/submissions/{id}/scores/{criterion}`, migration `0011` override provenance on the live scores row, original AI score preserved), rank recomputed in-response, needs_human_review image review queue in the detail view, dashboard redesign (podium rank badges, clickable score bars, pagination 25/50/100), override provenance display. pytest 405 / vitest 52.
 - v2.3.0 — Explainability *(MERGED to `main` 2026-09-01, commit `5e4692b`)*: every specialist score carries a `cited_excerpt` (direct quote/section reference, empty allowed when nothing is citable; never fabricated); migration `0010`; citations rendered as blockquotes in the detail view. Design-system overhaul shipped alongside (dark mode, responsive app shell).
