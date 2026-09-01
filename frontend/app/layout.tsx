@@ -14,7 +14,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <div className="app-shell">
+          <header className="app-header">
+            <a href="/" className="app-header__brand">
+              <span className="app-header__brand-icon">J</span>
+              JuryAI
+            </a>
+            <nav className="app-header__nav">
+              <a href="/">Submit</a>
+              <a href="/dashboard">Dashboard</a>
+            </nav>
+            <div className="app-header__actions" />
+          </header>
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

@@ -63,6 +63,19 @@ async def _score_one_submission(submission_id: str) -> dict:
                 "criterion": s.criterion,
                 "score": s.score,
                 "justification": s.justification,
+                "cited_excerpt": getattr(s, "cited_excerpt", ""),
+            }
+            for s in result.scores
+        ],
+    }
+    return {
+        "submission_id": submission_id,
+        "agent_version": result.agent_version,
+        "scores": [
+            {
+                "criterion": s.criterion,
+                "score": s.score,
+                "justification": s.justification,
             }
             for s in result.scores
         ],

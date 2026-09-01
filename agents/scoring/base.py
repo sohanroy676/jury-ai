@@ -1,13 +1,13 @@
 """Shared plumbing for the v0.5.0 specialist scoring agents.
 
 Each criterion is scored by its own narrow agent module
-(``problem_fit.py``, ``technical_depth.py``, ``feasibility.py``,
-``innovation.py``). This module holds everything they share — result
-types, the rubric, Groq client creation, retry/backoff, and response
-validation — so no agent duplicates it.
+(problem_fit.py, technical_depth.py, feasibility.py,
+innovation.py). This module holds everything they share --
+result types, the rubric, Groq client creation, retry/backoff,
+and response validation -- so no agent duplicates it.
 
-The four agents run concurrently against ONE shared ``AsyncGroq``
-client; per-agent retries use ``asyncio.sleep`` backoff.
+The four agents run concurrently against ONE shared AsyncGroq
+client; per-agent retries use asyncio.sleep backoff.
 """
 
 from __future__ import annotations
@@ -22,27 +22,18 @@ from groq import APIConnectionError, AsyncGroq, RateLimitError
 from agents.parsing.extractor import normalize_unicode_dashes
 from version import APP_VERSION
 
-# Provenance persisted with every score row: identifies the release
-# whose scoring logic produced it. Derived from the project-wide
-# version - bump version.py, never this string directly.
 AGENT_VERSION = f"v{APP_VERSION}"
-
-# llama-3.3-70b-versatile was deprecated/removed from Groq's free tier;
-# openai/gpt-oss-120b is the roadmap's listed alternative and is available.
 DEFAULT_MODEL = "openai/gpt-oss-120b"
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0
 
-# Canonical rubric: 4 criteria, each scored 1-10. Single source for both
-# the specialist agents' focus descriptions and the orchestrator's list
-# of criteria. Kept byte-identical to the v0.3.0 wording.
 RUBRIC: dict[str, Any] = {
     "criteria": [
         {
             "name": "problem_fit",
             "description": (
-                "How well does the solution address a real, significant problem? "
-                "Is the problem clearly identified and compelling?"
+                "How well does the solution address a real, significant "
+                "problem? Is the problem clearly identified and compelling?"
             ),
         },
         {
@@ -80,11 +71,12 @@ _RUBRIC_BY_NAME: dict[str, str] = {
 
 @dataclass
 class CriterionScore:
-    """A single criterion's score and justification."""
+    """A single criterion's score, justification, and citation (v2.3.0)."""
 
     criterion: str
     score: int
     justification: str
+    cited_excerpt: str = ""
 
 
 @dataclass
@@ -112,30 +104,18 @@ async def _sleep(seconds: float) -> None:
 
 
 class SpecialistAgent:
-    """Base class for one scoring specialist.
-
-    Subclasses declare ``criterion`` (must be a RUBRIC name) and an
-    optional tuple of narrow ``guidance`` lines that focus the prompt on
-    this agent's lens alone. Everything else — prompts, Groq call with
-    rate-limit backoff, response validation with corrective re-prompt —
-    lives here so each agent module stays tiny and independent.
-    """
+    """Base class for the four specialist scoring agents."""
 
     criterion: ClassVar[str] = ""
     guidance: ClassVar[tuple[str, ...]] = ()
 
-    def __init__(self) -> None:
-        if self.criterion not in _RUBRIC_BY_NAME:
-            raise ValueError(
-                f"{type(self).__name__} must set `criterion` to one of "
-                f"{CRITERIA_NAMES}, got {self.criterion!r}."
-            )
-        self.focus: str = _RUBRIC_BY_NAME[self.criterion]
-
-    # --- Prompts ------------------------------------------------------
+    @property
+    def focus(self) -> str:
+        """The criterion description from the rubric."""
+        return _RUBRIC_BY_NAME[self.criterion]
 
     def system_prompt(self) -> str:
-        """Narrow system prompt covering THIS criterion only."""
+        """System prompt fixing the output contract."""
         guidance_block = ""
         if self.guidance:
             guidance_block = "\n\nFocus areas:\n" + "\n".join(
@@ -149,9 +129,9 @@ Criterion definition (score 1-10, where 1 is very poor and 10 is excellent):
 Ignore every other aspect of the submission - other specialists cover them.
 
 Respond with ONLY valid JSON in this exact format:
-{{"{self.criterion}": {{"score": <int 1-10>, "justification": "<string>"}}}}
+{{"{self.criterion}": {{"score": <int 1-10>, "justification": "<string>", "cited_excerpt": "<string>"}}}}
 
-Do not include any text outside the JSON. The justification must be non-empty and reference specific content from the submission."""
+The cited_excerpt MUST be a direct quote or section/slide reference from the submission that supports the score. If no clearly relevant section exists, set cited_excerpt to an empty string and explain why in the justification. Do not fabricate citations. Do not include any text outside the JSON. The justification must be non-empty and reference specific content from the submission."""
 
     def user_message(self, parsed_text: str) -> str:
         """User message containing the parsed submission text."""
@@ -190,9 +170,6 @@ Score this submission on '{self.criterion}' and return valid JSON."""
             )
 
         raw_score = entry["score"]
-        # bool is an int subclass in Python - True would otherwise sneak
-        # through the range check below as score 1. A wrong TYPE gets a
-        # TypeError (still retryable by score()).
         if isinstance(raw_score, bool):
             raise TypeError(
                 f"Score for '{self.criterion}' must be an integer, got boolean"
@@ -205,8 +182,20 @@ Score this submission on '{self.criterion}' and return valid JSON."""
         if not justification:
             raise ValueError(f"Justification for '{self.criterion}' is empty")
 
+        # v2.3.0: cited_excerpt is optional -- agents may return empty string
+        # when no clearly relevant section exists for the criterion.
+        raw_citation = entry.get("cited_excerpt", "")
+        cited_excerpt = (
+            normalize_unicode_dashes(str(raw_citation).strip())
+            if raw_citation
+            else ""
+        )
+
         return CriterionScore(
-            criterion=self.criterion, score=score, justification=justification
+            criterion=self.criterion,
+            score=score,
+            justification=justification,
+            cited_excerpt=cited_excerpt,
         )
 
     # --- Groq interaction ---------------------------------------------
@@ -284,7 +273,8 @@ Score this submission on '{self.criterion}' and return valid JSON."""
                         "Your previous response was not valid JSON or was "
                         "missing required fields. Please respond with ONLY "
                         "valid JSON in the exact format specified for "
-                        f"criterion '{self.criterion}'. "
+                        f"criterion '{self.criterion}' (including the "
+                        "cited_excerpt field). "
                         f"Here is the submission text again:\n\n{parsed_text}"
                     )
                     await _sleep(INITIAL_BACKOFF)

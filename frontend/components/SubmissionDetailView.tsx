@@ -200,6 +200,40 @@ export default function SubmissionDetailView({
                 <tr key={s.criterion}>
                   <td>{s.criterion.replace(/_/g, " ")}</td>
                   <td>{s.score}</td>
+                  <td>
+                    {s.justification}
+                    {s.cited_excerpt ? (
+                      <blockquote className="citation">
+                        {s.cited_excerpt}
+                      </blockquote>
+                    ) : (
+                      <blockquote className="citation citation--empty">
+                        No citation provided for this score.
+                      </blockquote>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="hint">Not scored yet.</p>
+        )}
+        <h3>Criterion scores</h3>
+        {scores.length > 0 ? (
+          <table className="scores">
+            <thead>
+              <tr>
+                <th>Criterion</th>
+                <th>Score</th>
+                <th>Justification</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scores.map((s) => (
+                <tr key={s.criterion}>
+                  <td>{s.criterion.replace(/_/g, " ")}</td>
+                  <td>{s.score}</td>
                   <td>{s.justification}</td>
                 </tr>
               ))}

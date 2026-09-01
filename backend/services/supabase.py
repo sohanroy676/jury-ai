@@ -313,6 +313,7 @@ def insert_scores(
             "criterion": s.criterion,
             "score": s.score,
             "justification": s.justification,
+            "cited_excerpt": getattr(s, "cited_excerpt", ""),
             "agent_version": agent_version,
         }
         for s in scores
@@ -467,7 +468,7 @@ def get_all_scores() -> list[dict]:
     """
     client = get_client()
 
-    result = client.table("scores").select("submission_id, criterion, score").execute()
+    result = client.table("scores").select("submission_id, criterion, score, cited_excerpt").execute()
 
     return list(result.data or [])
 

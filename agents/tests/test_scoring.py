@@ -46,6 +46,20 @@ def _agent_for(criterion: str) -> SpecialistAgent:
 
 
 def _valid_response(
+    criterion: str,
+    score: int = 8,
+    justification: str | None = None,
+    cited_excerpt: str | None = None,
+) -> str:
+    """A valid single-criterion JSON response."""
+    entry = {
+        "score": score,
+        "justification": justification or f"Strong {criterion} evidence.",
+    }
+    if cited_excerpt is not None:
+        entry["cited_excerpt"] = cited_excerpt
+    return json.dumps({criterion: entry})
+def _valid_response(
     criterion: str, score: int = 8, justification: str | None = None
 ) -> str:
     """A valid single-criterion JSON response."""
@@ -396,3 +410,100 @@ def test_scorer_facade_still_exports_public_names():
 
     agents_list = build_specialist_agents()
     assert [a.criterion for a in agents_list] == CRITERIA_NAMES
+
+
+
+
+# --- v2.3.0 Explainability: cited excerpts ----------------------------------
+
+
+def test_citation_extracted_from_response():
+    """A cited_excerpt in the response is parsed into the CriterionScore."""
+    raw = json.dumps(
+        {
+            "problem_fit": {
+                "score": 8,
+                "justification": "Clear problem statement.",
+                "cited_excerpt": "Over 2M students lack access to quality STEM resources.",
+            }
+        }
+    )
+    client = _mock_client(raw)
+    score = asyncio.run(ProblemFitAgent().score(client, "text"))
+    assert score.cited_excerpt == "Over 2M students lack access to quality STEM resources."
+
+
+def test_citation_defaults_to_empty_when_missing():
+    """Responses without cited_excerpt still parse -- citation defaults to ''."""
+    raw = json.dumps(
+        {
+            "feasibility": {
+                "score": 6,
+                "justification": "Somewhat achievable.",
+            }
+        }
+    )
+    client = _mock_client(raw)
+    score = asyncio.run(FeasibilityAgent().score(client, "text"))
+    assert score.cited_excerpt == ""
+
+
+def test_citation_defaults_to_empty_when_null():
+    """Explicit null cited_excerpt is treated as empty string."""
+    raw = json.dumps(
+        {
+            "innovation": {
+                "score": 5,
+                "justification": "Incremental improvement.",
+                "cited_excerpt": None,
+            }
+        }
+    )
+    client = _mock_client(raw)
+    score = asyncio.run(InnovationAgent().score(client, "text"))
+    assert score.cited_excerpt == ""
+
+
+def test_citation_unicode_dashes_normalized():
+    """Unicode dashes in cited_excerpt are normalized to ASCII hyphens."""
+    raw = (
+        '{"technical_depth": {"score": 7, "justification": "Solid stack.", '
+        '"cited_excerpt": "Uses React\u2011Native \u2014 performant."}}'
+    )
+    client = _mock_client(raw)
+    score = asyncio.run(TechnicalDepthAgent().score(client, "text"))
+    assert score.cited_excerpt == "Uses React-Native - performant."
+
+
+def test_citation_empty_string_is_valid():
+    """An empty cited_excerpt string is accepted (agent chose not to cite)."""
+    raw = json.dumps(
+        {
+            "problem_fit": {
+                "score": 3,
+                "justification": "No clear problem stated in the submission.",
+                "cited_excerpt": "",
+            }
+        }
+    )
+    client = _mock_client(raw)
+    score = asyncio.run(ProblemFitAgent().score(client, "text"))
+    assert score.cited_excerpt == ""
+    assert score.score == 3
+
+
+def test_criterion_score_dataclass_accepts_citation():
+    """CriterionScore dataclass accepts cited_excerpt as optional field."""
+    cs = CriterionScore(
+        criterion="innovation",
+        score=9,
+        justification="Novel approach.",
+        cited_excerpt="First to apply LLMs to this domain.",
+    )
+    assert cs.cited_excerpt == "First to apply LLMs to this domain."
+
+
+def test_criterion_score_default_citation_empty():
+    """CriterionScore defaults cited_excerpt to empty string."""
+    cs = CriterionScore(criterion="feasibility", score=7, justification="Doable.")
+    assert cs.cited_excerpt == ""

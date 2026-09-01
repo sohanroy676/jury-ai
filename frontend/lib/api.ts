@@ -97,6 +97,12 @@ export interface ScoreRow {
   criterion: string;
   score: number;
   justification: string;
+  cited_excerpt?: string;
+}
+export interface ScoreRow {
+  criterion: string;
+  score: number;
+  justification: string;
 }
 
 export interface ParsedInfo {
