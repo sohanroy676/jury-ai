@@ -1,204 +1,149 @@
 # JuryAI
 
-**Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events.
+**Agentic AI hackathon evaluator** — automatically parses hackathon submissions (PDF/PPTX), scores them via four specialist AI agents, ranks and shortlists teams, and generates written feedback. Built for hackathon organizers and evaluators, with a focus on Smart India Hackathon (SIH)-style events and multi-track competitions.
 
-> **Status:** v1.2.0 — Notifications: submission confirmation + results-with-feedback emails over a pluggable free-tier transport (`EMAIL_PROVIDER=smtp|resend`), alongside editable rubric weights, batch scoring, CSV/PDF export, and resubmission-with-history. See [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** v3.2.0 — Multi-Track Scoping, Analytics Dashboard & Modern Dark Glassmorphism UI: track creation and scoping (`/dashboard/tracks`), analytics suite with score distributions, criterion heatmaps & submission funnel (`/dashboard/analytics`), cited excerpts for explainability, manual score overrides with provenance tracking, appeals queue (`/dashboard/appeals`), dual-transport email notifications (`EMAIL_PROVIDER=smtp|resend`), batch scoring, and CSV/PDF export. See [ROADMAP.md](ROADMAP.md) and [docs/explanation.md](docs/explanation.md) for full details.
 
-## Features
+---
 
-- 📤 **Upload portal** — teams submit a PDF or PPTX through a Next.js frontend.
-- 📊 **Evaluator dashboard** — ranked leaderboard with shortlist badges, editable rubric weights, batch scoring of pending submissions, per-team detail pages with generated feedback, and CSV/PDF export.
-- 🗄️ **Supabase-backed** — files go to Supabase Storage, metadata to Supabase Postgres.
-- 🧩 **Extensible agent pipeline** — parsing, scoring (4 agents), ranking, and feedback agents.
-- 💸 **100% free-tier** — no paid services, ever.
+## 🌟 Key Features
 
-## Tech Stack
+- 📤 **Upload Portal** — Teams submit PDF or PPTX pitch decks with inline validation, team email collection, and duplicate re-submission replacement flow (`409 Conflict`).
+- 🎛️ **Multi-Track Scoping** — Create hackathon tracks (e.g. AI/ML, Hardware, FinTech) with custom rubric weightings (`PUT /api/rubrics/{trackId}`) and track-scoped leaderboards.
+- 🎯 **Four Specialist AI Agents** — Problem Fit, Technical Depth, Feasibility, and Innovation agents score concurrently in parallel via Groq LLM inference (`llama-3.3-70b-versatile`).
+- 💬 **Explainability & Cited Excerpts** — Every AI score includes a direct quoted excerpt from the team's presentation as empirical evidence.
+- 📊 **Analytics Dashboard** — Visual score distribution histograms, criterion performance heatmaps, and pipeline submission funnels (`/dashboard/analytics`).
+- ✏️ **Manual Overrides with Provenance** — Evaluators can override any score with a required justification; original AI scores are preserved and rankings instantly update.
+- 📩 **Appeals & Resolution Queue** — Teams file appeals post-results; evaluators review team submissions, AI scores, and written feedback in a dedicated queue (`/dashboard/appeals`) with automated resolution emails.
+- 🎨 **Modern Dark Glassmorphism Design System** — Built with Google Fonts (`Outfit`, `Inter`, `JetBrains_Mono`), HSL gradient progress fills, sticky `sessionStorage` track selection, and quiet polling.
+- ✉️ **Dual-Transport Email Notifications** — Automatic submission confirmation and results-with-feedback emails via Gmail SMTP or Resend API.
+- 📑 **CSV & PDF Report Export** — Track-scoped leaderboard CSV downloads and ReportLab PDF evaluation reports for individual teams.
+- 💸 **100% Free-Tier Architecture** — Operates completely on free-tier services (Groq API, Supabase Postgres & Storage, standard Python smtplib).
+
+---
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js (TypeScript), React |
-| Backend | Python, FastAPI |
-| Database | Supabase (Postgres) |
-| File storage | Supabase Storage |
-| Testing | pytest (backend), Vitest (frontend) |
-| Lint/Format | Ruff (Python), ESLint + Prettier (frontend) |
+|---|---|
+| **Frontend** | Next.js 15 (TypeScript), React 19, Recharts |
+| **Backend API** | Python 3.14 / FastAPI, Pydantic, ASGI |
+| **Database & Storage** | Supabase (Postgres & Object Storage) |
+| **LLM & Vision** | Groq API (`llama-3.3-70b-versatile`) + Gemini / Groq Vision |
+| **PDF Report Generation** | ReportLab |
+| **Testing** | `pytest` (Backend - 432 tests) & `Vitest` (Frontend - 52 tests) |
+| **Linting & Code Quality** | Ruff (Python), ESLint + Prettier (Frontend) |
 
-## Prerequisites
+---
 
-- **Python 3.11+** (developed on 3.14)
-- **Node.js 18+** and npm
-- A free [Supabase](https://supabase.com) account (for the database + storage)
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 jury-ai/
-├── frontend/          # Next.js upload portal
-├── backend/           # FastAPI API layer
-│   ├── routes/        # API route handlers
-│   ├── services/      # Supabase client, storage, DB logic
-│   └── tests/         # Backend tests
-├── agents/            # Agent logic (parsing, scoring, ranking, feedback) — v0.2.0+
-├── infra/             # DB migrations, deployment config
-├── docs/              # Setup guide, ADRs, detailed roadmap
-└── memory-bank/       # Project memory (architecture, decisions, progress)
+├── frontend/          # Next.js 15 App Router frontend (TypeScript)
+│   ├── app/           # Portal, Dashboard, Analytics, Tracks, Appeals pages
+│   ├── components/    # Reusable UI components & TrackSelector
+│   └── lib/           # Typed API client (api.ts) & Vitest tests
+├── backend/           # FastAPI backend
+│   ├── routes/        # Submissions, Scores, Rankings, Rubrics, Analytics, Appeals, Tracks, Export
+│   ├── services/      # Supabase DB & Storage services, Email dispatcher
+│   └── tests/         # Pytest backend test suite (432 tests)
+├── agents/            # AI Agent system
+│   ├── parsing/       # PDF/PPTX text extraction & Vision router
+│   ├── scoring/       # Four specialist agents (Problem Fit, Tech Depth, Feasibility, Innovation)
+│   ├── ranking/       # Weighted composite ranking engine & tie-breaker
+│   └── feedback/      # Written feedback generator agent
+├── infra/             # Supabase SQL migrations (0001 - 0012)
+├── docs/              # Setup guide, Architecture, ADRs, Project Explanation (`docs/explanation.md`)
+└── memory-bank/       # Active context, architecture patterns, progress logs
 ```
 
-## Getting Started
+---
 
-### 1. Clone & install
+## 🚀 Quick Start Guide
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/sohanroy676/jury-ai.git
 cd jury-ai
 ```
 
-### 2. Set up Supabase
+### 2. Set Up Supabase Database & Bucket
 
-You need a Supabase project with a `submissions` table and a `submissions` storage bucket. Follow the detailed walkthrough in **[docs/setup.md](docs/setup.md)** — it covers creating the project, running the SQL migration, and creating the bucket.
+Follow the step-by-step instructions in **[docs/setup.md](docs/setup.md)** to set up your free Supabase project, execute SQL migrations (`infra/migrations/`), and create the `submissions` storage bucket.
 
-### 3. Configure environment variables
+### 3. Configure Environment Variables
 
 ```bash
-# Root: copy the example and fill in your Supabase values
+# Copy root .env template
 cp .env.example .env
-```
 
-```bash
-# Frontend: copy the example (defaults to http://localhost:8000)
+# Copy frontend .env.local template
 cp frontend/.env.example frontend/.env.local
 ```
 
-### 4. Run the backend
+Fill in your `SUPABASE_URL`, `SUPABASE_KEY`, `GROQ_API_KEY`, and optional email SMTP/Resend credentials in `.env`.
+
+### 4. Run the Backend (FastAPI)
 
 ```bash
-# From the repo root — create and activate a virtual environment
+# Create and activate Python virtual environment
 python -m venv venv
+
 # Windows:
 venv\Scripts\activate
 # macOS/Linux:
 # source venv/bin/activate
 
-# Install dependencies into the venv
+# Install dependencies
 pip install -r backend/requirements.txt
 
-# Start the backend
+# Start FastAPI dev server
 uvicorn backend.main:app --reload
-# (Deactivate the venv when done: `deactivate`)
 ```
+- API Endpoint: <http://localhost:8000>
+- Interactive Swagger Docs: <http://localhost:8000/docs>
 
-The API is now at <http://localhost:8000> — interactive docs at <http://localhost:8000/docs>.
+### 5. Run the Frontend (Next.js)
 
-### 5. Run the frontend
-
-In a second terminal:
+In a separate terminal:
 
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+- Open <http://localhost:3000> in your browser to access the JuryAI submission portal and evaluator dashboard.
 
-Open <http://localhost:3000> and upload a PDF or PPTX.
+---
 
-## Demo the Core Loop (API only)
-
-With the backend running and `.env` configured (Supabase + `GROQ_API_KEY`):
-
-```bash
-# 1. Upload a PDF or PPTX (parsed automatically on upload)
-curl -s -X POST http://localhost:8000/api/submissions   -F "team_name=QuantumQuokka"   -F "file=@./proposal.pdf"
-# -> {"id": "<submission_id>", "team_name": "QuantumQuokka", ...}
-
-# 2. Trigger scoring (Groq-powered)
-curl -s -X POST http://localhost:8000/api/submissions/<submission_id>/score
-
-# 3. Read back the full record: submission + parsed text + scores
-curl -s http://localhost:8000/api/submissions/<submission_id>
-
-# 4. Configure rubric weights (fractions summing to 1.0, or percentages summing to 100)
-curl -s -X PUT http://localhost:8000/api/rubrics/default   -H "Content-Type: application/json"   -d '{"weights": {"problem_fit": 0.30, "technical_depth": 0.30, "feasibility": 0.20, "innovation": 0.20}}'
-
-# 5. Get the ranked leaderboard (shortlist top 5, or use &min_score=7.5 instead)
-curl -s "http://localhost:8000/api/rankings?hackathon_id=default&top_n=5"
-```
-
-`GET /api/submissions` lists every upload, newest first. Interactive docs for all endpoints live at <http://localhost:8000/docs>.
-
-### Batch scoring (v1.0.0)
-
-Score every submission that lacks a complete score set in one call, one
-submission at a time (stays inside Groq's free-tier rate limits). `limit`
-caps how many are attempted (default 10, max 50); the response reports
-per-item outcomes and how many remain.
+## 🧪 Testing & Code Quality
 
 ```bash
-# Score the 10 newest pending submissions
-curl -s -X POST "http://localhost:8000/api/submissions/score-pending?limit=10"
-# -> {"scored": 10, "failed": 0, "remaining": 12, "results": [...]}
-```
+# Run backend pytest suite (432 tests)
+pytest --ignore=agents/tests/test_image_classify.py
 
-## Demo the Evaluator Dashboard (browser)
-
-With the backend and frontend running (`.env` configured with Supabase +
-`GROQ_API_KEY`):
-
-1. Open <http://localhost:3000> and upload a few PDF/PPTX submissions.
-2. Open the **Evaluator dashboard** (link in the nav bar).
-3. In **Score all pending**, set a batch size and click **Start batch scoring** —
-   the leaderboard below populates as submissions get scored.
-4. Tune **Rubric weights (%)** and save — the leaderboard recomputes immediately.
-5. Apply a shortlist top-N, then in **Generate all pending feedback** click
-   **Start feedback generation** — every fully-scored team without feedback gets
-   its write-up, its status flips to Shortlisted/Rejected, and results emails go
-   out automatically (best composite first).
-6. Export the board via **Export CSV**.
-7. Click a team name to open its detail page: read criterion scores and
-   justifications, regenerate written feedback, and **Download PDF report**.
-
-## Testing
-
-```bash
-# Backend (from repo root) — ensure the venv is active first
-venv\Scripts\pytest     # Windows
-# source venv/bin/activate && pytest   # macOS/Linux
-
-# Frontend (from /frontend)
+# Run frontend Vitest suite (52 tests)
+cd frontend
 npm run test
+
+# Check code linting
+ruff check .           # Backend
+npm run lint           # Frontend
 ```
 
-## Lint & Format
+---
 
-```bash
-# Backend (from repo root) — ensure the venv is active first
-venv\Scripts\ruff check .      # lint   (Windows)
-venv\Scripts\ruff format .     # format (Windows)
-# source venv/bin/activate && ruff check . / ruff format .   # macOS/Linux
+## 📘 Comprehensive Documentation
 
-# Frontend (from /frontend)
-npm run lint        # lint
-npm run format      # format
-```
+For an in-depth walkthrough of the AI multi-agent architecture, data flows, database schemas, and free-tier strategy, refer to:
+- 📖 **[docs/explanation.md](docs/explanation.md)** — Detailed project explanation and presentation guide.
+- ⚙️ **[docs/setup.md](docs/setup.md)** — Production setup and database migration guide.
+- 🗺️ **[ROADMAP.md](ROADMAP.md)** — Complete version release history and future feature plans.
 
-## Roadmap
+---
 
-- **v0.1.0** ✅ Project skeleton — upload portal, Supabase DB + storage wired.
-- **v0.2.0** ✅ Parsing agent — extract text from PDF (PyMuPDF) and PPTX (python-pptx).
-- **v0.3.0** ✅ Single scoring agent — Groq-powered, structured JSON output.
-- **v0.4.0** ✅ Checkpoint — core loop (upload → parse → score) demoable end to end.
-- **v0.5.0** ✅ Multi-agent split — four specialist agents (problem fit, technical depth, feasibility, innovation) score in parallel; technical depth inferred from document content only.
-- **v0.6.0** ✅ Weighted scoring + ranking — configurable rubric (`PUT /api/rubrics/{hackathon_id}`), composite leaderboard (`GET /api/rankings`), top-N / min-score shortlist cutoffs, deterministic tie-breaking.
-- **v0.7.0** ✅ Feedback agent + export — written strengths/weaknesses/suggestion per team with shortlist/reject verdict; CSV leaderboard and ReportLab PDF report downloads.
-- **v1.0.0** ✅ Evaluator dashboard MVP — leaderboard with shortlist/tie badges, rubric % editor, batch score-pending scoring, submission detail view, typed frontend API client.
-- **v1.1.0** ✅ Submission UX — pre-submit upload validation, re-submission with archived history (409 replace flow), derived pipeline StageTracker with polling.
-- **v1.2.0** ✅ Notifications — team contact email collected at upload; confirmation email after parse-complete; results-with-feedback email on generation; dual transport behind `EMAIL_PROVIDER` (Gmail SMTP default, Resend optional).
-
-See [ROADMAP.md](ROADMAP.md) and [docs/hackathon_evaluator_roadmap.md](docs/hackathon_evaluator_roadmap.md) for the full plan.
-
-## Contributing
-
-This project follows a strict workflow — see [.clinerules/](.clinerules/) and [AGENTS.md](AGENTS.md) for conventions around commits, testing, and code quality.
-
-## License
+## 📄 License
 
 Private project. All rights reserved.
