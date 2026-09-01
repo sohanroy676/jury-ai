@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import AppealPanel from "./AppealPanel";
 import ErrorBanner from "./ErrorBanner";
@@ -130,19 +130,29 @@ export default function SubmissionDetailView({
     }
   }
 
+  const uniqueScores = useMemo(() => {
+    const raw = detail?.scores ?? [];
+    const map = new Map<string, (typeof raw)[0]>();
+    for (const s of raw) {
+      if (!map.has(s.criterion)) {
+        map.set(s.criterion, s);
+      }
+    }
+    return Array.from(map.values());
+  }, [detail?.scores]);
+
   if (loading)
     return (
-      <main>
+      <main className="wide">
         <NavLinks />
         <p className="hint">Loading submission record…</p>
       </main>
     );
 
   const submission = detail?.submission ?? null;
-  const scores = detail?.scores ?? [];
 
   return (
-    <main>
+    <main className="wide">
       <NavLinks />
 
       <section className="card" style={{ marginBottom: "1.5rem" }}>
@@ -174,10 +184,10 @@ export default function SubmissionDetailView({
             state={{
               parsed: detail?.parsed != null,
               scored:
-                Array.isArray(scores) &&
-                scores.length > 0 &&
+                Array.isArray(uniqueScores) &&
+                uniqueScores.length > 0 &&
                 CRITERIA.every((criterion) =>
-                  scores.some((row) => row.criterion === criterion)
+                  uniqueScores.some((row) => row.criterion === criterion)
                 ),
               verdict,
             }}
@@ -227,7 +237,7 @@ export default function SubmissionDetailView({
         </div>
 
         <h3 style={{ marginBottom: "1rem" }}>Criterion scores</h3>
-        {scores.length > 0 ? (
+        {uniqueScores.length > 0 ? (
           <div className="table-container" style={{ marginBottom: "1.5rem" }}>
             <table className="scores">
               <thead>
@@ -238,7 +248,7 @@ export default function SubmissionDetailView({
                 </tr>
               </thead>
               <tbody>
-                {scores.map((s) => (
+                {uniqueScores.map((s) => (
                   <tr key={s.criterion}>
                     <td style={{ textTransform: "capitalize", fontWeight: 600 }}>
                       {s.criterion.replace(/_/g, " ")}

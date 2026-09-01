@@ -22,15 +22,15 @@ export default function TrackSelector({
     void (async () => {
       try {
         const data = await listTracks();
-        setTracks(data.tracks);
-        // If the active track doesn't exist in the list yet, keep the current
-        // selection (e.g. "default" before the seed track loads).
-        if (
-          data.tracks.length > 0 &&
-          !data.tracks.some((t) => t.id === activeTrack)
-        ) {
-          onChange(data.tracks[0].id);
-        }
+        const loaded = data.tracks || [];
+        const hasDefault = loaded.some((t) => t.id === "default");
+        const list = hasDefault
+          ? loaded
+          : [
+              { id: "default", name: "Default Track", description: "Default track" },
+              ...loaded,
+            ];
+        setTracks(list);
       } catch (err) {
         const msg =
           err instanceof ApiError ? err.message : "Could not load tracks.";
@@ -39,7 +39,7 @@ export default function TrackSelector({
         setLoading(false);
       }
     })();
-  }, [activeTrack, onChange]);
+  }, []);
 
   if (loading) {
     return (
@@ -52,7 +52,9 @@ export default function TrackSelector({
   return (
     <>
       {error && (
-        <ErrorBanner message={error} onDismiss={() => setError(null)} />
+        <span className="hint" style={{ color: "#f87171", fontSize: "0.8rem" }}>
+          {error}
+        </span>
       )}
       <select
         value={activeTrack}

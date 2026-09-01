@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import ErrorBanner from "../../components/ErrorBanner";
 import NavLinks from "../../components/NavLinks";
+import TrackSelector from "../../components/TrackSelector";
 import {
   ApiError,
   BatchFeedbackResult,
@@ -21,7 +22,6 @@ import {
 } from "../../lib/api";
 import type { RankedRow, Weights } from "../../lib/api";
 
-const HACKATHON_ID = "default";
 const MIN_OVERRIDE_REASON = 10;
 const PAGE_SIZES = [25, 50, 100] as const;
 
@@ -42,6 +42,7 @@ interface OverrideTarget {
 }
 
 export default function DashboardPage() {
+  const [selectedTrack, setSelectedTrack] = useState<string>("default");
   const [board, setBoard] = useState<Leaderboard | null>(null);
   const [loadingBoard, setLoadingBoard] = useState(true);
   const [boardError, setBoardError] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export default function DashboardPage() {
     setLoadingBoard(true);
     setBoardError(null);
     try {
-      const data = await fetchRankings(HACKATHON_ID, { topN: appliedTopN });
+      const data = await fetchRankings(selectedTrack, { topN: appliedTopN });
       setBoard(data);
     } catch (err) {
       setBoardError(
@@ -95,7 +96,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingBoard(false);
     }
-  }, [appliedTopN]);
+  }, [selectedTrack, appliedTopN]);
 
   useEffect(() => {
     void load();
@@ -119,7 +120,7 @@ export default function DashboardPage() {
     setSavingRubric(true);
     setBoardError(null);
     try {
-      await saveRubric(HACKATHON_ID, parsed);
+      await saveRubric(selectedTrack, parsed);
       await load();
       setNotice("Rubric saved — rankings reweighted.");
     } catch (err) {
@@ -174,7 +175,7 @@ export default function DashboardPage() {
     setBoardError(null);
     try {
       const result = await generatePendingFeedback(limit, {
-        hackathonId: HACKATHON_ID,
+        hackathonId: selectedTrack,
         topN: appliedTopN,
       });
       setFbResult(result);
@@ -310,10 +311,15 @@ export default function DashboardPage() {
             <span>🏆 Live Evaluation Dashboard</span>
           </div>
           <h1>Evaluator dashboard</h1>
-          <p className="subtitle" style={{ margin: 0 }}>
-            Ranked leaderboard, rubric weights, and batch scoring for hackathon{" "}
-            <code>{HACKATHON_ID}</code>.
+          <p className="subtitle" style={{ margin: "0 0 1rem" }}>
+            Ranked leaderboard, rubric weights, and batch scoring across hackathon tracks.
           </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#cbd5e1" }}>
+              Active Track:
+            </span>
+            <TrackSelector activeTrack={selectedTrack} onChange={setSelectedTrack} />
+          </div>
         </div>
         <Link className="btn btn--secondary" href="/">
           ← Upload portal
@@ -419,8 +425,8 @@ export default function DashboardPage() {
               className="btn btn--secondary btn--sm"
               href={
                 appliedTopN !== undefined
-                  ? exportCsvUrl(HACKATHON_ID, { topN: appliedTopN })
-                  : exportCsvUrl(HACKATHON_ID)
+                  ? exportCsvUrl(selectedTrack, { topN: appliedTopN })
+                  : exportCsvUrl(selectedTrack)
               }
             >
               Export CSV
