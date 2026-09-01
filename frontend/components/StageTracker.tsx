@@ -1,9 +1,5 @@
 "use client";
 
-// v1.1.0 status tracker: renders the submission pipeline as a stepper.
-// Stages are DERIVED upstream (parsed row present, complete score set,
-// feedback verdict) rather than stored, matching the project's
-// compute-on-the-fly convention.
 export interface StageState {
   parsed: boolean;
   scored: boolean;
@@ -24,15 +20,19 @@ export default function StageTracker({ state }: { state: StageState }) {
 
   return (
     <ol className="stage-tracker" aria-label="Submission progress">
-      {PIPELINE_STEPS.map((step, index) => (
-        <li
-          key={step.key}
-          className={index < doneCount ? "stage-done" : "stage-todo"}
-        >
-          {step.label}
-        </li>
-      ))}
+      {PIPELINE_STEPS.map((step, index) => {
+        const isDone = index < doneCount;
+        return (
+          <li
+            key={step.key}
+            className={isDone ? "stage-done" : "stage-todo"}
+          >
+            <span>{isDone ? "✓" : index + 1}</span> {step.label}
+          </li>
+        );
+      })}
       <li className={state.verdict ? "stage-done stage-verdict" : "stage-todo"}>
+        <span>{state.verdict ? "★" : "4"}</span>
         {state.verdict === "shortlist"
           ? "Shortlisted"
           : state.verdict === "reject"

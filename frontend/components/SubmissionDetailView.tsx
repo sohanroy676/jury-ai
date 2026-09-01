@@ -56,9 +56,6 @@ export default function SubmissionDetailView({
     void load();
   }, [load]);
 
-  // v1.1.0 near-real-time status: poll while the submission has not yet
-  // reached a final verdict. A busy-guard prevents overlapping refreshes;
-  // the interval is cleaned up on unmount or once the verdict lands.
   const pollBusy = useRef(false);
   const quietLoad = useCallback(async () => {
     if (pollBusy.current) return;
@@ -126,7 +123,7 @@ export default function SubmissionDetailView({
     return (
       <main>
         <NavLinks />
-        <p>Loading submission…</p>
+        <p className="hint">Loading submission record…</p>
       </main>
     );
 
@@ -136,39 +133,70 @@ export default function SubmissionDetailView({
   return (
     <main>
       <NavLinks />
-      <h1>{submission ? submission.team_name : "Submission"}</h1>
-      {submission && (
-        <p className="meta">
-          {submission.file_type?.toUpperCase() || "unknown type"}
-          {submission.uploaded_at && ` · uploaded ${submission.uploaded_at}`}
-          {submission.status && ` · status: ${submission.status}`}
-        </p>
-      )}
 
-      <StageTracker
-        state={{
-          parsed: detail?.parsed != null,
-          scored:
-            Array.isArray(scores) &&
-            scores.length > 0 &&
-            CRITERIA.every((criterion) =>
-              scores.some((row) => row.criterion === criterion)
-            ),
-          verdict,
-        }}
-      />
+      <section className="card" style={{ marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <h1>{submission ? submission.team_name : "Submission Record"}</h1>
+            {submission && (
+              <p className="meta" style={{ margin: "0.25rem 0 0.75rem" }}>
+                Format: <strong>{submission.file_type?.toUpperCase() || "PDF"}</strong>
+                {submission.uploaded_at && ` · Uploaded ${new Date(submission.uploaded_at).toLocaleString()}`}
+                {submission.status && ` · Status: ${submission.status}`}
+              </p>
+            )}
+          </div>
+          {submission?.id && (
+            <a
+              className="btn btn--secondary btn--sm"
+              href={exportPdfUrl(submissionId, {
+                topN: Number(topNInput) || undefined,
+              })}
+            >
+              📄 Download PDF Report
+            </a>
+          )}
+        </div>
+
+        <div style={{ marginTop: "1rem" }}>
+          <StageTracker
+            state={{
+              parsed: detail?.parsed != null,
+              scored:
+                Array.isArray(scores) &&
+                scores.length > 0 &&
+                CRITERIA.every((criterion) =>
+                  scores.some((row) => row.criterion === criterion)
+                ),
+              verdict,
+            }}
+          />
+        </div>
+      </section>
 
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
-      {notice && <p className="success">{notice}</p>}
+      {notice && (
+        <div className="alert alert--success" style={{ marginBottom: "1rem" }}>
+          <span>{notice}</span>
+        </div>
+      )}
 
       <section className="card">
-        <h2>Scoring & feedback</h2>
-        <div className="inline-controls">
-          <button type="button" onClick={handleScore} disabled={scoring}>
+        <h2 className="card__title" style={{ marginBottom: "1rem" }}>
+          Scoring & Feedback Controls
+        </h2>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "1.5rem" }}>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={handleScore}
+            disabled={scoring}
+          >
             {scoring ? "Scoring…" : "Score this submission"}
           </button>
         </div>
-        <div className="inline-controls">
+
+        <div className="inline-controls" style={{ marginBottom: "1.5rem" }}>
           <label htmlFor="feedback-top-n">Shortlist cutoff top N</label>
           <input
             id="feedback-top-n"
@@ -179,6 +207,7 @@ export default function SubmissionDetailView({
           />
           <button
             type="button"
+            className="btn btn--secondary"
             onClick={handleGenerateFeedback}
             disabled={generating}
           >
@@ -186,78 +215,95 @@ export default function SubmissionDetailView({
           </button>
         </div>
 
-        <h3>Criterion scores</h3>
+        <h3 style={{ marginBottom: "1rem" }}>Criterion scores</h3>
         {scores.length > 0 ? (
-          <table className="scores">
-            <thead>
-              <tr>
-                <th>Criterion</th>
-                <th>Score</th>
-                <th>Justification</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scores.map((s) => (
-                <tr key={s.criterion}>
-                  <td>{s.criterion.replace(/_/g, " ")}</td>
-                  <td>
-                    <strong>{s.score}</strong>
-                    {s.overridden_at != null &&
-                      typeof s.original_score === "number" && (
-                        <span
-                          className="override-meta"
-                          title={`AI originally scored ${s.original_score}`}
-                        >
-                          <br />
-                          <span className="badge badge-tie">
-                            was {s.original_score} (AI)
-                          </span>
-                        </span>
-                      )}
-                  </td>
-                  <td>
-                    {s.justification}
-                    {s.cited_excerpt ? (
-                      <blockquote className="citation">
-                        {s.cited_excerpt}
-                      </blockquote>
-                    ) : (
-                      <blockquote className="citation citation--empty">
-                        No citation provided for this score.
-                      </blockquote>
-                    )}
-                    {s.overridden_by && (
-                      <p className="override-provenance">
-                        Overridden by <strong>{s.overridden_by}</strong>
-                        {s.override_reason ? `: “${s.override_reason}”` : ""}
-                      </p>
-                    )}
-                  </td>
+          <div className="table-container" style={{ marginBottom: "1.5rem" }}>
+            <table className="scores">
+              <thead>
+                <tr>
+                  <th>Criterion</th>
+                  <th style={{ width: "120px" }}>Score</th>
+                  <th>Justification</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {scores.map((s) => (
+                  <tr key={s.criterion}>
+                    <td style={{ textTransform: "capitalize", fontWeight: 600 }}>
+                      {s.criterion.replace(/_/g, " ")}
+                    </td>
+                    <td>
+                      <div className="score-bar">
+                        <span className="score-bar__value" style={{ fontSize: "1.1rem", fontWeight: 700 }}>
+                          {s.score}
+                        </span>
+                        <div className="score-bar__track" style={{ width: "60px" }}>
+                          <div
+                            className={`score-bar__fill ${
+                              s.score >= 8
+                                ? "score-bar__fill--high"
+                                : s.score >= 5
+                                ? "score-bar__fill--medium"
+                                : "score-bar__fill--low"
+                            }`}
+                            style={{ width: `${s.score * 10}%` }}
+                          />
+                        </div>
+                      </div>
+                      {s.overridden_at != null &&
+                        typeof s.original_score === "number" && (
+                          <div className="override-meta" style={{ marginTop: "0.25rem" }}>
+                            <span className="badge badge--tie">
+                              was {s.original_score} (AI)
+                            </span>
+                          </div>
+                        )}
+                    </td>
+                    <td>
+                      <p style={{ margin: 0 }}>{s.justification}</p>
+                      {s.cited_excerpt ? (
+                        <blockquote className="citation">
+                          {s.cited_excerpt}
+                        </blockquote>
+                      ) : (
+                        <blockquote className="citation citation--empty">
+                          No citation provided for this score.
+                        </blockquote>
+                      )}
+                      {s.overridden_by && (
+                        <p style={{ fontSize: "0.75rem", color: "#c084fc", marginTop: "0.4rem" }}>
+                          Overridden by <strong>{s.overridden_by}</strong>
+                          {s.override_reason ? `: “${s.override_reason}”` : ""}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p className="hint">Not scored yet.</p>
         )}
 
-        <h3>Feedback</h3>
+        <h3 style={{ marginBottom: "1rem" }}>Feedback</h3>
         {feedback ? (
           <div className="feedback-card">
-            <p>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
               <span
                 className={`badge ${
                   feedback.verdict === "shortlist"
-                    ? "badge-shortlist"
-                    : "badge-reject"
+                    ? "badge--shortlist"
+                    : "badge--reject"
                 }`}
+                style={{ fontSize: "0.85rem", padding: "0.35rem 0.85rem" }}
               >
                 {feedback.verdict}
               </span>
               {feedback.agent_version && (
-                <span className="meta"> · agent {feedback.agent_version}</span>
+                <span className="hint"> · agent {feedback.agent_version}</span>
               )}
-            </p>
+            </div>
             <h4>Strengths</h4>
             <ul>
               {(feedback.strengths ?? []).map((s, i) => (
@@ -271,7 +317,9 @@ export default function SubmissionDetailView({
               ))}
             </ul>
             <h4>Suggested next step</h4>
-            <p>{feedback.suggestion}</p>
+            <p style={{ color: "#e2e8f0", background: "rgba(15,23,42,0.5)", padding: "0.75rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {feedback.suggestion}
+            </p>
           </div>
         ) : (
           <p className="hint">No feedback generated yet.</p>
@@ -282,31 +330,30 @@ export default function SubmissionDetailView({
 
       {detail?.flagged_images && detail.flagged_images.length > 0 && (
         <section className="card">
-          <h2>
+          <h2 className="card__title" style={{ marginBottom: "0.75rem" }}>
             Images flagged for review{" "}
-            <span className="badge badge-tie">
+            <span className="badge badge--tie" style={{ marginLeft: "0.5rem" }}>
               {detail.flagged_images.length}
             </span>
           </h2>
-          <p className="hint">
-            The vision router could not confidently classify or describe these
-            images. Please verify them manually.
+          <p className="hint" style={{ marginBottom: "1rem" }}>
+            The vision router could not confidently classify or describe these images. Please verify them manually.
           </p>
           <div className="review-queue">
             {detail.flagged_images.map((img, i) => (
-              <div className="review-card" key={i}>
-                <div className="review-meta">
-                  <span className="badge badge-tie">needs review</span>
-                  {img.page != null && <span>page {img.page}</span>}
-                  {img.slide != null && <span>slide {img.slide}</span>}
+              <div className="card" key={i} style={{ background: "rgba(15,23,42,0.5)", marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+                  <span className="badge badge--tie">needs review</span>
+                  {img.page != null && <span className="badge">page {img.page}</span>}
+                  {img.slide != null && <span className="badge">slide {img.slide}</span>}
                   {img.classification && (
-                    <span>guessed: {img.classification}</span>
+                    <span className="badge badge--ai">type: {img.classification}</span>
                   )}
                   {typeof img.confidence === "number" && (
-                    <span>{Math.round(img.confidence * 100)}% confidence</span>
+                    <span className="badge">{Math.round(img.confidence * 100)}% confidence</span>
                   )}
                 </div>
-                <p className="review-description">
+                <p className="review-description" style={{ fontSize: "0.875rem", margin: 0 }}>
                   {img.description || (
                     <em>No description was generated for this image.</em>
                   )}
@@ -318,18 +365,20 @@ export default function SubmissionDetailView({
       )}
 
       <section className="card">
-        <h2>Parsed text</h2>
+        <h2 className="card__title" style={{ marginBottom: "1rem" }}>Parsed text</h2>
         {detail?.parsed?.raw_text ? (
           <>
             <pre className="parsed-text">{detail.parsed.raw_text}</pre>
-            <a
-              className="button-link"
-              href={exportPdfUrl(submissionId, {
-                topN: Number(topNInput) || undefined,
-              })}
-            >
-              Download PDF report
-            </a>
+            <div style={{ marginTop: "1rem" }}>
+              <a
+                className="button-link btn btn--secondary"
+                href={exportPdfUrl(submissionId, {
+                  topN: Number(topNInput) || undefined,
+                })}
+              >
+                Download PDF report
+              </a>
+            </div>
           </>
         ) : (
           <p className="hint">No parsed text stored for this submission.</p>

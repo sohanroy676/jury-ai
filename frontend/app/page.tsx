@@ -13,7 +13,6 @@ import {
 
 const ALLOWED_EXTENSIONS = [".pdf", ".pptx"];
 const MAX_UPLOAD_MB = 50;
-// Same shape rule the backend enforces (services/email.py is_valid_email).
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Home() {
@@ -32,9 +31,6 @@ export default function Home() {
     try {
       setSubmissions(await fetchSubmissions());
     } catch {
-      // The portal stays usable without the list (e.g. backend down for
-      // scoring but up for uploads is unlikely; a silent empty list beats
-      // blocking the upload form).
       setSubmissions(null);
     }
   }, []);
@@ -43,8 +39,6 @@ export default function Home() {
     void loadSubmissions();
   }, [loadSubmissions]);
 
-  // Pre-submit validation (v1.1.0): format, empty, and size problems are
-  // caught the moment a file is chosen — never only on the server.
   function validateFile(selected: File): string | null {
     const ext = selected.name.toLowerCase().split(".").pop();
     if (!ext || !ALLOWED_EXTENSIONS.includes(`.${ext}`)) {
@@ -106,8 +100,6 @@ export default function Home() {
         replaceExisting,
       });
 
-      // v1.1.0: surface what the parser found so teams immediately see
-      // whether their document structure came through. Non-fatal on error.
       let sectionNote = "";
       try {
         const detail = await fetchSubmission(data.id);
@@ -123,12 +115,9 @@ export default function Home() {
             ? ` Parsed sections (${titles.length}): ${titles.join(", ")}.`
             : " No titled sections were detected in the document.";
       } catch {
-        // Section feedback is a nicety — an unreadable response must not
-        // make a successful upload look failed.
+        // Section feedback non-fatal
       }
 
-      // v1.2.0: reflect the confirmation-email outcome so teams know the
-      // notification went out (or why it didn't).
       let emailNote = "";
       const confirmation = data.notification?.confirmation_email;
       if (confirmation?.status === "sent") {
@@ -166,34 +155,57 @@ export default function Home() {
   const trimmedEmail = teamEmail.trim();
   const emailValid = EMAIL_PATTERN.test(trimmedEmail);
   const showEmailError = teamEmail.length > 0 && !emailValid;
-
   const formReady = Boolean(teamName.trim()) && emailValid && file !== null;
 
   return (
     <main>
       <NavLinks />
-      <h1>JuryAI Submission Portal</h1>
-      <p className="subtitle">
-        Upload your hackathon submission. Only PDF and PPTX files are accepted.
-      </p>
 
-      <form onSubmit={handleSubmit}>
-        <div>
+      <section className="card" style={{ textAlign: "center", padding: "2.5rem 1.5rem" }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.25rem 0.75rem",
+            borderRadius: "9999px",
+            background: "rgba(99, 102, 241, 0.15)",
+            border: "1px solid rgba(99, 102, 241, 0.3)",
+            color: "#a5b4fc",
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            marginBottom: "1rem",
+          }}
+        >
+          <span>⚡ Automated AI Jury System</span>
+        </div>
+        <h1 style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>
+          JuryAI Submission Portal
+        </h1>
+        <p className="subtitle" style={{ maxWidth: "520px", margin: "0 auto 1.5rem" }}>
+          Upload your hackathon submission. Only PDF and PPTX files are accepted (up to 50MB).
+          Our 4 specialist AI scoring agents will evaluate your team automatically.
+        </p>
+      </section>
+
+      <form onSubmit={handleSubmit} className="card">
+        <h2 className="card__title" style={{ marginBottom: "1.25rem" }}>
+          Submission Form
+        </h2>
+
+        <div className="form-group">
           <label htmlFor="team_name">Team name</label>
           <input
             id="team_name"
             type="text"
             value={teamName}
             onChange={(e) => setTeamName(e.target.value)}
-            placeholder="e.g. Team Alpha"
+            placeholder="e.g. QuantumQuokka"
           />
         </div>
 
-        <div>
+        <div className="form-group">
           <label htmlFor="team_email">Contact email</label>
-          {/* type="text" + inline validation on purpose (v1.1.0 lesson:
-              native constraint validation fights both jsdom tests and the
-              styled-message UX); submit is gated by formReady anyway. */}
           <input
             id="team_email"
             type="text"
@@ -206,52 +218,85 @@ export default function Home() {
           )}
         </div>
 
-        <div>
+        <div className="form-group">
           <label htmlFor="file">Submission file (.pdf / .pptx)</label>
-          {/* No `required` here on purpose: v1.1.0's inline validation owns
-              the messaging (native tooltips would fight it), and submit is
-              gated by `formReady` anyway. */}
-          <input
-            id="file"
-            type="file"
-            accept=".pdf,.pptx"
-            onChange={handleFileChange}
-          />
+          <div
+            style={{
+              border: "2px dashed rgba(255, 255, 255, 0.15)",
+              borderRadius: "12px",
+              padding: "1.25rem",
+              background: "rgba(15, 23, 42, 0.4)",
+              textAlign: "center",
+              transition: "border-color 200ms ease",
+            }}
+          >
+            <input
+              id="file"
+              type="file"
+              accept=".pdf,.pptx"
+              onChange={handleFileChange}
+              style={{ cursor: "pointer" }}
+            />
+            {file && (
+              <p style={{ marginTop: "0.5rem", color: "#34d399", fontSize: "0.875rem", fontWeight: 500 }}>
+                ✓ Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+              </p>
+            )}
+          </div>
           {fileError && <p className="error">{fileError}</p>}
         </div>
 
         {error && <p className="error">{error}</p>}
+
         {conflictMessage && (
           <div className="conflict-box" role="alert">
+            <p style={{ fontWeight: 600 }}>⚠️ Duplicate Submission Detected</p>
             <p>{conflictMessage}</p>
             <button
               type="button"
+              className="btn btn--danger"
               onClick={() => void doSubmit(true)}
               disabled={submitting}
             >
               {submitting ? "Replacing…" : "Replace previous submission"}
             </button>
             <p className="hint">
-              Your earlier version stays in history; only the newest one is
-              evaluated.
+              Your earlier version stays in history; only the newest version is evaluated.
             </p>
           </div>
         )}
-        {success && <p className="success">{success}</p>}
 
-        <button type="submit" disabled={submitting || !formReady}>
+        {success && (
+          <div className="alert alert--success" style={{ marginBottom: "1rem" }}>
+            <span>{success}</span>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          className="btn btn--primary"
+          style={{ width: "100%", padding: "0.85rem", marginTop: "0.5rem" }}
+          disabled={submitting || !formReady}
+        >
           {submitting ? "Uploading…" : "Submit"}
         </button>
+
         {!formReady && !submitting && (
-          <p className="hint">
-            A team name, a contact email, and a valid PDF/PPTX file are required
-            to submit.
+          <p className="hint" style={{ textAlign: "center", marginTop: "0.75rem" }}>
+            A team name, a contact email, and a valid PDF/PPTX file are required to submit.
           </p>
         )}
       </form>
 
       <section className="card">
-        <h2>Recent submissions</h2>
+        <div className="card__header">
+          <h2 className="card__title">Recent Submissions</h2>
+          {submissions && (
+            <span className="badge badge--ai">
+              {submissions.length} Total
+            </span>
+          )}
+        </div>
         {submissions === null ? (
           <p className="hint">
             Could not load the submissions list (is the backend running?).
@@ -262,13 +307,17 @@ export default function Home() {
           <ul className="submission-list">
             {submissions.map((s) => (
               <li key={s.id}>
-                <a href={`/submissions/${s.id}`}>{s.team_name}</a>
-                <span className="meta">
-                  {" "}
-                  {s.file_type?.toUpperCase() || ""}
-                  {s.status ? ` · ${s.status}` : ""}
-                  {s.uploaded_at ? ` · ${s.uploaded_at}` : ""}
-                </span>
+                <div>
+                  <a href={`/submissions/${s.id}`}>{s.team_name}</a>
+                  <span className="meta" style={{ display: "block", marginTop: "0.2rem" }}>
+                    {s.file_type?.toUpperCase() || ""}
+                    {s.status ? ` · ${s.status}` : ""}
+                    {s.uploaded_at ? ` · ${new Date(s.uploaded_at).toLocaleString()}` : ""}
+                  </span>
+                </div>
+                <a href={`/submissions/${s.id}`} className="btn btn--secondary btn--sm">
+                  View →
+                </a>
               </li>
             ))}
           </ul>

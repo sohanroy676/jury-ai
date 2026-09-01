@@ -9,12 +9,6 @@ interface RubricBuilderProps {
   trackId: string;
 }
 
-interface RubricData {
-  hackathon_id: string;
-  rubric: Weights;
-  rubric_source: "configured" | "fallback";
-}
-
 export default function RubricBuilder({ trackId }: RubricBuilderProps) {
   const [rubric, setRubric] = useState<Weights | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +40,6 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
     const updated = { ...rubric, [criterion]: value };
     const total = Object.values(updated).reduce((sum, v) => sum + v, 0);
 
-    // Auto-normalize: if total exceeds 100%, scale all down proportionally
     if (total > 1) {
       const scale = 1 / total;
       Object.keys(updated).forEach((k) => {
@@ -69,7 +62,7 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
     setNotice(null);
     try {
       await saveRubric(trackId, rubric);
-      setNotice("Rubric saved.");
+      setNotice("Rubric saved successfully.");
       await load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not save rubric.";
@@ -80,7 +73,7 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
   }
 
   if (loading) {
-    return <p className="hint">Loading rubric…</p>;
+    return <p className="hint">Loading rubric for track '{trackId}'…</p>;
   }
 
   if (!rubric) {
@@ -95,17 +88,23 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
   const total = Object.values(rubric).reduce((sum, v) => sum + v, 0);
 
   return (
-    <section className="card">
-      <h2>Track rubric: {trackId}</h2>
+    <div style={{ marginTop: "1rem" }}>
+      <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem" }}>
+        Configuring Track Rubric: <strong style={{ color: "#a5b4fc" }}>{trackId}</strong>
+      </h3>
+
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
-      {notice && <p className="success">{notice}</p>}
+      {notice && (
+        <div className="alert alert--success" style={{ marginBottom: "1rem" }}>
+          <span>{notice}</span>
+        </div>
+      )}
 
       <div className="rubric-builder">
         {CRITERIA.map((criterion) => (
           <div key={criterion} className="rubric-row">
-            <label htmlFor={criterion}>
-              {criterion.replace(/_/g, " ")}:{" "}
-              {Math.round(rubric[criterion] * 100)}%
+            <label htmlFor={criterion} style={{ textTransform: "capitalize" }}>
+              {criterion.replace(/_/g, " ")}
             </label>
             <input
               id={criterion}
@@ -118,28 +117,32 @@ export default function RubricBuilder({ trackId }: RubricBuilderProps) {
                 handleWeightChange(criterion, Number(e.target.value) / 100)
               }
             />
-            <span className="rubric-value">{rubric[criterion].toFixed(2)}</span>
+            <span className="rubric-value">
+              {Math.round(rubric[criterion] * 100)}%
+            </span>
           </div>
         ))}
       </div>
 
-      <div className="rubric-summary">
-        <p>
-          Total: <strong>{Math.round(total * 100)}%</strong>
+      <div className="rubric-summary" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p style={{ margin: 0 }}>
+          Total Weight Sum: <strong>{Math.round(total * 100)}%</strong>
           {Math.abs(total - 1.0) > 0.01 && (
-            <span className="badge badge-tie"> must equal 100%</span>
+            <span className="badge badge--tie" style={{ marginLeft: "0.75rem" }}>
+              Must equal 100%
+            </span>
           )}
         </p>
-      </div>
 
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={saving || Math.abs(total - 1.0) > 0.01}
-        onClick={handleSave}
-      >
-        {saving ? "Saving…" : "Save rubric"}
-      </button>
-    </section>
+        <button
+          type="button"
+          className="btn btn--primary"
+          disabled={saving || Math.abs(total - 1.0) > 0.01}
+          onClick={handleSave}
+        >
+          {saving ? "Saving Rubric…" : "Save Track Rubric"}
+        </button>
+      </div>
+    </div>
   );
 }

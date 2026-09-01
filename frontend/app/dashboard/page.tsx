@@ -27,7 +27,6 @@ const PAGE_SIZES = [25, 50, 100] as const;
 
 type WeightInputs = Record<Criterion, string>;
 
-// Percent inputs, seeded to the engine's equal-weights fallback (25 each).
 const INITIAL_WEIGHT_INPUTS: WeightInputs = {
   problem_fit: "25",
   technical_depth: "25",
@@ -35,7 +34,6 @@ const INITIAL_WEIGHT_INPUTS: WeightInputs = {
   innovation: "25",
 };
 
-/** One clickable leaderboard score cell awaiting an override. */
 interface OverrideTarget {
   submissionId: string;
   teamName: string;
@@ -64,7 +62,6 @@ export default function DashboardPage() {
   const [generating, setGenerating] = useState(false);
   const [fbResult, setFbResult] = useState<BatchFeedbackResult | null>(null);
 
-  // --- v2.1.0: pagination + override state ------------------------------
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(25);
   const [overrideTarget, setOverrideTarget] = useState<OverrideTarget | null>(
@@ -77,7 +74,6 @@ export default function DashboardPage() {
   const [overrideError, setOverrideError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Success notices self-dismiss so the board never needs a click.
   useEffect(() => {
     if (!notice) return;
     const id = window.setTimeout(() => setNotice(null), 4000);
@@ -177,9 +173,6 @@ export default function DashboardPage() {
     setFbResult(null);
     setBoardError(null);
     try {
-      // The applied top-N cutoff drives each team's shortlist flag (and
-      // thus its feedback tone + email wording) — same rule as the
-      // detail-view Generate button and the export links.
       const result = await generatePendingFeedback(limit, {
         hackathonId: HACKATHON_ID,
         topN: appliedTopN,
@@ -194,8 +187,6 @@ export default function DashboardPage() {
       setGenerating(false);
     }
   }
-
-  // --- v2.1.0: overrides --------------------------------------------------
 
   function openOverride(row: RankedRow, criterion: Criterion) {
     const current = row.criterion_scores[criterion];
@@ -272,8 +263,6 @@ export default function DashboardPage() {
     }
   }
 
-  // --- v2.1.0: client-side pagination -------------------------------------
-
   const totalRows = board?.ranked.length ?? 0;
   const pageCount = Math.max(Math.ceil(totalRows / pageSize), 1);
   const safePage = Math.min(page, pageCount - 1);
@@ -286,22 +275,47 @@ export default function DashboardPage() {
   function handlePageSizeChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = Number(e.target.value);
     setPageSize(next);
-    // Keep the first visible team roughly in view across size changes.
     setPage(Math.floor((safePage * pageSize) / next));
   }
 
   return (
     <main className="wide">
       <NavLinks />
-      <header className="page-header">
+
+      <header
+        className="card"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "1rem",
+          padding: "1.75rem 2rem",
+        }}
+      >
         <div>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "#a5b4fc",
+              marginBottom: "0.35rem",
+            }}
+          >
+            <span>🏆 Live Evaluation Dashboard</span>
+          </div>
           <h1>Evaluator dashboard</h1>
-          <p className="subtitle">
+          <p className="subtitle" style={{ margin: 0 }}>
             Ranked leaderboard, rubric weights, and batch scoring for hackathon{" "}
             <code>{HACKATHON_ID}</code>.
           </p>
         </div>
-        <Link className="btn btn-ghost" href="/">
+        <Link className="btn btn--secondary" href="/">
           ← Upload portal
         </Link>
       </header>
@@ -309,11 +323,11 @@ export default function DashboardPage() {
       <ErrorBanner message={boardError} onDismiss={() => setBoardError(null)} />
 
       {notice && (
-        <div className="toast toast-success" role="status">
+        <div className="alert alert--success" role="status" style={{ display: "flex", alignItems: "center" }}>
           <span>{notice}</span>
           <button
             type="button"
-            className="toast-dismiss"
+            className="alert__dismiss"
             aria-label="Dismiss notification"
             onClick={() => setNotice(null)}
           >
@@ -323,61 +337,73 @@ export default function DashboardPage() {
       )}
 
       {board && (
-        <div className="stat-row" aria-label="Pipeline summary">
-          <div className="stat-card">
-            <span className="stat-value">{board.scored_count}</span>
-            <span className="stat-label">scored</span>
+        <>
+          <div className="stat-grid" aria-label="Pipeline summary">
+            <div className="stat-card">
+              <span className="stat-card__value">{board.scored_count}</span>
+              <span className="stat-card__label">Scored Teams</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value" style={{ color: "#94a3b8" }}>{board.unscored_count}</span>
+              <span className="stat-card__label">Unscored Teams</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value" style={{ color: "#fbbf24" }}>{board.partial_count}</span>
+              <span className="stat-card__label">Partial Scores</span>
+            </div>
           </div>
-          <div className="stat-card stat-card--muted">
-            <span className="stat-value">{board.unscored_count}</span>
-            <span className="stat-label">unscored</span>
-          </div>
-          <div className="stat-card stat-card--warn">
-            <span className="stat-value">{board.partial_count}</span>
-            <span className="stat-label">partial</span>
-          </div>
-          <p className="counts">
+          <p className="counts" style={{ marginBottom: "1rem" }}>
             {board.scored_count} scored · {board.unscored_count} unscored ·{" "}
             {board.partial_count} partial
             {board.rubric_source === "fallback" &&
               " · using fallback equal weights (no rubric configured)"}
           </p>
-        </div>
+        </>
       )}
 
       <section className="card">
-        <h2>Rubric weights (%)</h2>
-        <form onSubmit={handleSaveRubric} className="rubric-form">
-          {CRITERIA.map((c) => (
-            <div key={c}>
-              <label htmlFor={`weight-${c}`}>{c.replace(/_/g, " ")}</label>
-              <input
-                id={`weight-${c}`}
-                type="number"
-                min={0}
-                step="any"
-                value={weightInputs[c]}
-                onChange={(e) =>
-                  setWeightInputs((prev) => ({ ...prev, [c]: e.target.value }))
-                }
-              />
-            </div>
-          ))}
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={savingRubric}
-          >
-            {savingRubric ? "Saving…" : "Save rubric"}
-          </button>
+        <h2 className="card__title" style={{ marginBottom: "1rem" }}>
+          Rubric weights (%)
+        </h2>
+        <form onSubmit={handleSaveRubric}>
+          <div className="two-col" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            {CRITERIA.map((c) => (
+              <div key={c} className="form-group" style={{ marginBottom: 0 }}>
+                <label htmlFor={`weight-${c}`} style={{ textTransform: "capitalize" }}>
+                  {c.replace(/_/g, " ")}
+                </label>
+                <input
+                  id={`weight-${c}`}
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={weightInputs[c]}
+                  onChange={(e) =>
+                    setWeightInputs((prev) => ({ ...prev, [c]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "1.25rem", flexWrap: "wrap", gap: "1rem" }}>
+            <p className="hint" style={{ margin: 0 }}>
+              Rankings update immediately after saving.
+            </p>
+            <button
+              className="btn btn--primary"
+              type="submit"
+              disabled={savingRubric}
+            >
+              {savingRubric ? "Saving…" : "Save rubric"}
+            </button>
+          </div>
         </form>
-        <p className="hint">Rankings update immediately after saving.</p>
       </section>
 
       <section className="card">
-        <div className="card-header-row">
-          <h2>Leaderboard</h2>
-          <form onSubmit={handleApplyTopN} className="inline-controls">
+        <div className="card__header" style={{ flexWrap: "wrap", gap: "1rem" }}>
+          <h2 className="card__title">Leaderboard</h2>
+          <form onSubmit={handleApplyTopN} className="inline-controls" style={{ margin: 0 }}>
             <label htmlFor="top-n">Shortlist top</label>
             <input
               id="top-n"
@@ -386,11 +412,11 @@ export default function DashboardPage() {
               value={topNInput}
               onChange={(e) => setTopNInput(e.target.value)}
             />
-            <button className="btn btn-secondary" type="submit">
+            <button className="btn btn--secondary btn--sm" type="submit">
               Apply
             </button>
             <a
-              className="btn btn-ghost"
+              className="btn btn--secondary btn--sm"
               href={
                 appliedTopN !== undefined
                   ? exportCsvUrl(HACKATHON_ID, { topN: appliedTopN })
@@ -403,20 +429,21 @@ export default function DashboardPage() {
         </div>
 
         {loadingBoard ? (
-          <div className="loading-block" role="status">
-            <span className="spinner" aria-hidden="true" />
+          <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#94a3b8" }} role="status">
             Loading rankings…
           </div>
         ) : board && board.ranked.length > 0 ? (
           <>
-            <div className="table-scroll">
+            <div className="table-container">
               <table className="leaderboard">
                 <thead>
                   <tr>
                     <th>Rank</th>
                     <th>Team</th>
                     {CRITERIA.map((c) => (
-                      <th key={c}>{c.replace(/_/g, " ")}</th>
+                      <th key={c} style={{ textTransform: "capitalize" }}>
+                        {c.replace(/_/g, " ")}
+                      </th>
                     ))}
                     <th>Composite</th>
                     <th>Status</th>
@@ -426,18 +453,14 @@ export default function DashboardPage() {
                   {pagedRows.map((row) => (
                     <tr key={row.submission_id}>
                       <td>
-                        <span
-                          className={`rank-badge${
-                            row.rank <= 3 ? ` rank-${row.rank}` : ""
-                          }`}
-                        >
+                        <span className={`rank rank--${row.rank}`}>
                           {row.rank}
                         </span>
                       </td>
                       <td>
                         <a
-                          className="team-link"
                           href={`/submissions/${row.submission_id}`}
+                          style={{ color: "#f8fafc", fontWeight: 600, textDecoration: "none" }}
                         >
                           {row.team_name}
                         </a>
@@ -449,23 +472,29 @@ export default function DashboardPage() {
                             {typeof value === "number" ? (
                               <button
                                 type="button"
-                                className="score-cell"
+                                className="btn btn--ghost btn--sm"
+                                style={{ width: "100%", justifyContent: "space-between", padding: "0.25rem 0.5rem" }}
                                 title={`Override ${c.replace(/_/g, " ")} for ${row.team_name}`}
                                 onClick={() => openOverride(row, c)}
                               >
-                                <span className="score-num">{value}</span>
-                                <span className="score-bar">
-                                  <span
-                                    className="score-fill"
-                                    style={{ width: `${value * 10}%` }}
-                                  />
+                                <span className="score-bar" style={{ width: "100%" }}>
+                                  <span className="score-bar__track">
+                                    <span
+                                      className={`score-bar__fill ${
+                                        value >= 8
+                                          ? "score-bar__fill--high"
+                                          : value >= 5
+                                          ? "score-bar__fill--medium"
+                                          : "score-bar__fill--low"
+                                      }`}
+                                      style={{ width: `${value * 10}%` }}
+                                    />
+                                  </span>
+                                  <span className="score-bar__value">{value}</span>
                                 </span>
                               </button>
                             ) : (
-                              <span
-                                className="score-missing"
-                                aria-label="not scored"
-                              >
+                              <span style={{ color: "#64748b" }} aria-label="not scored">
                                 —
                               </span>
                             )}
@@ -473,29 +502,26 @@ export default function DashboardPage() {
                         );
                       })}
                       <td>
-                        <span className="composite">
-                          <span className="composite-value">
-                            {row.composite_score.toFixed(2)}
-                          </span>
-                          <span className="score-bar score-bar--composite">
-                            <span
-                              className="score-fill"
+                        <div className="score-bar">
+                          <div className="score-bar__track">
+                            <div
+                              className="score-bar__fill score-bar__fill--high"
                               style={{ width: `${row.composite_score * 10}%` }}
                             />
+                          </div>
+                          <span className="score-bar__value" style={{ color: "#818cf8", fontWeight: 700 }}>
+                            {row.composite_score.toFixed(2)}
                           </span>
-                        </span>
+                        </div>
                       </td>
                       <td>
                         {row.shortlisted && (
-                          <span className="badge badge-shortlist">
+                          <span className="badge badge--shortlist">
                             shortlisted
                           </span>
                         )}
                         {row.tied_on_composite && (
-                          <span
-                            className="badge badge-tie"
-                            title="Tied composite score"
-                          >
+                          <span className="badge badge--tie" title="Tied composite score" style={{ marginLeft: "0.35rem" }}>
                             tie
                           </span>
                         )}
@@ -505,81 +531,96 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
-            <p className="table-hint">
-              Click any score to override it — a reason is required and the
-              original AI score is preserved.
+
+            <p className="hint" style={{ marginTop: "1rem" }}>
+              Click any score to override it — a reason is required and the original AI score is preserved.
             </p>
 
             {totalRows > pageSize && (
-              <nav className="pagination" aria-label="Leaderboard pages">
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  aria-label="First page"
-                  disabled={safePage === 0}
-                  onClick={() => setPage(0)}
-                >
-                  «
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={safePage === 0}
-                  onClick={() => setPage(safePage - 1)}
-                >
-                  ‹ Prev
-                </button>
-                <span className="page-indicator">
+              <nav
+                className="pagination"
+                aria-label="Leaderboard pages"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginTop: "1.25rem",
+                  flexWrap: "wrap",
+                  gap: "1rem",
+                }}
+              >
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    aria-label="First page"
+                    disabled={safePage === 0}
+                    onClick={() => setPage(0)}
+                  >
+                    «
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    disabled={safePage === 0}
+                    onClick={() => setPage(safePage - 1)}
+                  >
+                    ‹ Prev
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    disabled={safePage >= pageCount - 1}
+                    onClick={() => setPage(safePage + 1)}
+                  >
+                    Next ›
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    aria-label="Last page"
+                    disabled={safePage >= pageCount - 1}
+                    onClick={() => setPage(pageCount - 1)}
+                  >
+                    »
+                  </button>
+                </div>
+                <span className="page-indicator" style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
                   Page {safePage + 1} of {pageCount}
                 </span>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={safePage >= pageCount - 1}
-                  onClick={() => setPage(safePage + 1)}
-                >
-                  Next ›
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  aria-label="Last page"
-                  disabled={safePage >= pageCount - 1}
-                  onClick={() => setPage(pageCount - 1)}
-                >
-                  »
-                </button>
-                <label className="page-size">
-                  Rows
-                  <select value={pageSize} onChange={handlePageSizeChange}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.875rem", color: "#94a3b8" }}>Rows</label>
+                  <select
+                    value={pageSize}
+                    onChange={handlePageSizeChange}
+                    style={{ width: "80px", padding: "0.25rem 0.5rem" }}
+                  >
                     {PAGE_SIZES.map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
               </nav>
             )}
           </>
         ) : (
-          <div className="empty-state">
-            <div className="empty-icon" aria-hidden="true">
-              🏆
-            </div>
+          <div style={{ textAlign: "center", padding: "3rem 1rem", color: "#94a3b8" }}>
+            <p style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🏆</p>
             <h3>No fully-scored submissions yet</h3>
-            <p>Run batch scoring below to build the leaderboard.</p>
+            <p className="hint">Run batch scoring below to build the leaderboard.</p>
           </div>
         )}
       </section>
 
       <div className="two-col">
         <section className="card">
-          <h2>Batch scoring</h2>
+          <h2 className="card__title">Batch scoring</h2>
           <p className="hint">
             Score unscored submissions with the four specialist agents.
           </p>
-          <form onSubmit={handleBatchScore} className="inline-controls">
+          <form onSubmit={handleBatchScore} className="inline-controls" style={{ marginTop: "1rem" }}>
             <label htmlFor="batch-limit">Batch size</label>
             <input
               id="batch-limit"
@@ -590,7 +631,7 @@ export default function DashboardPage() {
               onChange={(e) => setBatchLimitInput(e.target.value)}
             />
             <button
-              className="btn btn-primary"
+              className="btn btn--primary"
               type="submit"
               disabled={batching}
             >
@@ -598,14 +639,14 @@ export default function DashboardPage() {
             </button>
           </form>
           {batchResult && (
-            <div className="result-box">
-              <p>
+            <div className="batch-result">
+              <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
                 Scored {batchResult.scored}, failed {batchResult.failed},{" "}
                 {batchResult.remaining} remaining.
               </p>
-              <ul>
+              <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
                 {batchResult.results.map((r) => (
-                  <li key={r.submission_id} className={r.ok ? "ok" : "fail"}>
+                  <li key={r.submission_id} style={{ color: r.ok ? "#34d399" : "#fb7185" }}>
                     {r.team_name}: {r.ok ? "scored" : r.error}
                   </li>
                 ))}
@@ -615,11 +656,11 @@ export default function DashboardPage() {
         </section>
 
         <section className="card">
-          <h2>Batch feedback</h2>
+          <h2 className="card__title">Batch feedback</h2>
           <p className="hint">
-            Generate written feedback for teams that don&apos;t have it yet.
+            Generate written feedback for teams that don't have it yet.
           </p>
-          <form onSubmit={handleBatchFeedback} className="inline-controls">
+          <form onSubmit={handleBatchFeedback} className="inline-controls" style={{ marginTop: "1rem" }}>
             <label htmlFor="fb-limit">Batch size</label>
             <input
               id="fb-limit"
@@ -630,7 +671,7 @@ export default function DashboardPage() {
               onChange={(e) => setFbLimitInput(e.target.value)}
             />
             <button
-              className="btn btn-primary"
+              className="btn btn--primary"
               type="submit"
               disabled={generating}
             >
@@ -638,14 +679,14 @@ export default function DashboardPage() {
             </button>
           </form>
           {fbResult && (
-            <div className="result-box">
-              <p>
+            <div className="batch-result">
+              <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
                 Generated {fbResult.generated}, failed {fbResult.failed},{" "}
                 {fbResult.remaining} remaining.
               </p>
-              <ul>
+              <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
                 {fbResult.results.map((r) => (
-                  <li key={r.submission_id} className={r.ok ? "ok" : "fail"}>
+                  <li key={r.submission_id} style={{ color: r.ok ? "#34d399" : "#fb7185" }}>
                     {r.team_name}: {r.ok ? r.verdict : r.error}
                   </li>
                 ))}
@@ -657,79 +698,113 @@ export default function DashboardPage() {
 
       {overrideTarget && (
         <div
-          className="modal-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
           role="presentation"
           onClick={closeOverride}
         >
           <div
-            className="modal"
+            className="card"
+            style={{
+              maxWidth: "480px",
+              width: "100%",
+              margin: 0,
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+            }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="override-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 id="override-title">Override score</h3>
-            <p className="modal-subtitle">
+            <h3 id="override-title" style={{ fontSize: "1.25rem", marginBottom: "0.5rem" }}>
+              Override score
+            </h3>
+            <p className="hint" style={{ marginBottom: "1.25rem" }}>
               <strong>{overrideTarget.teamName}</strong> ·{" "}
-              {overrideTarget.criterion.replace(/_/g, " ")} · AI scored{" "}
-              <strong>{overrideTarget.current}</strong>
+              <span style={{ textTransform: "capitalize" }}>{overrideTarget.criterion.replace(/_/g, " ")}</span> · AI scored{" "}
+              <strong style={{ color: "#a5b4fc" }}>{overrideTarget.current}</strong>
             </p>
+
             <form onSubmit={handleOverrideSubmit}>
-              <label htmlFor="override-score">New score (1–10)</label>
-              <input
-                id="override-score"
-                type="number"
-                min={1}
-                max={10}
-                step={1}
-                value={overrideScoreInput}
-                onChange={(e) => setOverrideScoreInput(e.target.value)}
-                required
-              />
-              <label htmlFor="override-reason">
-                Reason (min {MIN_OVERRIDE_REASON} characters)
-              </label>
-              <textarea
-                id="override-reason"
-                rows={3}
-                value={overrideReason}
-                onChange={(e) => setOverrideReason(e.target.value)}
-                placeholder="Why is the AI's score being adjusted?"
-                required
-              />
-              <span
-                className={`char-count${
-                  overrideReasonValid ? " char-count--ok" : ""
-                }`}
-              >
-                {overrideReason.trim().length} / {MIN_OVERRIDE_REASON} min
-                characters
-              </span>
-              <label htmlFor="override-evaluator">Your name or email</label>
-              <input
-                id="override-evaluator"
-                type="text"
-                value={overrideEvaluator}
-                onChange={(e) => setOverrideEvaluator(e.target.value)}
-                placeholder="alice@example.com"
-                required
-              />
+              <div className="form-group">
+                <label htmlFor="override-score">New score (1–10)</label>
+                <input
+                  id="override-score"
+                  type="number"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={overrideScoreInput}
+                  onChange={(e) => setOverrideScoreInput(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="override-reason">
+                  Reason (min {MIN_OVERRIDE_REASON} characters)
+                </label>
+                <textarea
+                  id="override-reason"
+                  rows={3}
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  placeholder="Why is the AI's score being adjusted?"
+                  required
+                />
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: overrideReasonValid ? "#34d399" : "#94a3b8",
+                    textAlign: "right",
+                  }}
+                >
+                  {overrideReason.trim().length} / {MIN_OVERRIDE_REASON} min characters
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="override-evaluator">Your name or email</label>
+                <input
+                  id="override-evaluator"
+                  type="text"
+                  value={overrideEvaluator}
+                  onChange={(e) => setOverrideEvaluator(e.target.value)}
+                  placeholder="alice@example.com"
+                  required
+                />
+              </div>
+
               {overrideError && (
-                <p className="alert alert-error" role="alert">
-                  {overrideError}
-                </p>
+                <div className="alert alert--error" role="alert" style={{ marginBottom: "1rem" }}>
+                  <span>{overrideError}</span>
+                </div>
               )}
-              <div className="modal-actions">
+
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
                 <button
                   type="button"
-                  className="btn btn-ghost"
+                  className="btn btn--secondary"
                   onClick={closeOverride}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
+                  className="btn btn--primary"
                   disabled={
                     savingOverride ||
                     !overrideScoreValid ||

@@ -33,7 +33,13 @@ const CRITERIA_LABELS: Record<string, string> = {
   innovation: "Innovation",
 };
 
-const HEATMAP_COLORS = ["#f3f4f6", "#fef3c7", "#fbbf24", "#f59e0b", "#d97706"];
+const HEATMAP_COLORS = [
+  "#1e293b",
+  "#334155",
+  "#f59e0b",
+  "#10b981",
+  "#6366f1",
+];
 
 function getHeatmapColor(score: number): string {
   const idx = Math.min(
@@ -85,47 +91,74 @@ export default function AnalyticsPage() {
   return (
     <main className="wide">
       <NavLinks />
-      <h1>Analytics dashboard</h1>
-      <p className="subtitle">
-        Score distributions, criterion heatmap, and submission funnel for the
-        selected track.
-      </p>
+
+      <section className="card" style={{ padding: "1.75rem 2rem", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "#a5b4fc",
+                marginBottom: "0.35rem",
+              }}
+            >
+              <span>📊 Real-Time Evaluation Insights</span>
+            </div>
+            <h1>Analytics Dashboard</h1>
+            <p className="subtitle" style={{ margin: 0 }}>
+              Score distribution histograms, team criterion heatmap, and submission funnel metrics.
+            </p>
+          </div>
+          <div className="inline-controls" style={{ margin: 0 }}>
+            <label htmlFor="track-selector">Active Track:</label>
+            <TrackSelector activeTrack={activeTrack} onChange={setActiveTrack} />
+          </div>
+        </div>
+      </section>
+
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
-      <div className="inline-controls">
-        <label htmlFor="track-selector">Track</label>
-        <TrackSelector activeTrack={activeTrack} onChange={setActiveTrack} />
-      </div>
-      {loading && <p className="hint">Loading analytics…</p>}
+
+      {loading && <p className="hint" style={{ textAlign: "center", padding: "2rem" }}>Loading track analytics…</p>}
+
       {!loading && overview && (
         <>
-          <section className="stat-row">
+          <div className="stat-grid">
             <div className="stat-card">
-              <span className="stat-value">{overview.total_submissions}</span>
-              <span className="stat-label">Submissions</span>
+              <span className="stat-card__value">{overview.total_submissions}</span>
+              <span className="stat-card__label">Total Submissions</span>
             </div>
             <div className="stat-card">
-              <span className="stat-value">{overview.scored_count}</span>
-              <span className="stat-label">Scored</span>
+              <span className="stat-card__value" style={{ color: "#38bdf8" }}>{overview.scored_count}</span>
+              <span className="stat-card__label">Scored Teams</span>
             </div>
             <div className="stat-card">
-              <span className="stat-value">{overview.shortlisted_count}</span>
-              <span className="stat-label">Shortlisted</span>
+              <span className="stat-card__value" style={{ color: "#34d399" }}>{overview.shortlisted_count}</span>
+              <span className="stat-card__label">Shortlisted</span>
             </div>
             <div className="stat-card">
-              <span className="stat-value">
+              <span className="stat-card__value" style={{ color: "#c084fc" }}>
                 {overview.avg_composite.toFixed(1)}
               </span>
-              <span className="stat-label">Avg composite</span>
+              <span className="stat-card__label">Avg Composite</span>
             </div>
-          </section>
+          </div>
+
           <section className="card">
-            <h2>Criterion averages</h2>
-            <div className="stat-row">
+            <h2 className="card__title" style={{ marginBottom: "1rem" }}>Criterion Means Breakdown</h2>
+            <div className="stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", margin: 0 }}>
               {Object.entries(overview.criterion_averages).map(
                 ([criterion, avg]) => (
-                  <div className="stat-card" key={criterion}>
-                    <span className="stat-value">{Number(avg).toFixed(1)}</span>
-                    <span className="stat-label">
+                  <div className="stat-card" key={criterion} style={{ padding: "1rem" }}>
+                    <span className="stat-card__value" style={{ fontSize: "1.5rem", color: "#f8fafc" }}>
+                      {Number(avg).toFixed(1)}
+                    </span>
+                    <span className="stat-card__label">
                       {CRITERIA_LABELS[criterion] ?? criterion}
                     </span>
                   </div>
@@ -133,31 +166,36 @@ export default function AnalyticsPage() {
               )}
             </div>
           </section>
+
           <section className="card">
-            <h2>Score distributions</h2>
+            <h2 className="card__title" style={{ marginBottom: "1.5rem" }}>Score Distribution Histograms</h2>
             <div className="chart-grid">
               {Object.entries(distributions).map(([criterion, bins]) => (
                 <div key={criterion} className="chart-card">
                   <h3>{CRITERIA_LABELS[criterion] ?? criterion}</h3>
                   <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={bins}>
-                      <XAxis dataKey="score" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar
-                        dataKey="count"
-                        fill="#3b82f6"
-                        radius={[4, 4, 0, 0]}
+                    <BarChart data={bins} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <XAxis dataKey="score" stroke="#64748b" tick={{ fill: "#94a3b8" }} />
+                      <YAxis stroke="#64748b" tick={{ fill: "#94a3b8" }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#0f172a",
+                          borderColor: "rgba(255,255,255,0.15)",
+                          borderRadius: "8px",
+                          color: "#f8fafc",
+                        }}
                       />
+                      <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               ))}
             </div>
           </section>
+
           {funnel && (
             <section className="card">
-              <h2>Submission funnel</h2>
+              <h2 className="card__title" style={{ marginBottom: "1.25rem" }}>Submission Pipeline Funnel</h2>
               <div className="funnel">
                 {[
                   { label: "Submitted", value: funnel.submitted },
@@ -175,21 +213,24 @@ export default function AnalyticsPage() {
                       className="funnel-stage"
                       key={stage.label}
                       style={{
-                        backgroundColor: `rgba(59, 130, 246, ${pct / 100})`,
+                        backgroundColor: `rgba(99, 102, 241, ${Math.max(0.12, pct / 100)})`,
                       }}
                     >
                       <span className="funnel-label">{stage.label}</span>
-                      <span className="funnel-value">{stage.value}</span>
-                      <span className="funnel-pct">{pct}%</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        <span className="funnel-value">{stage.value}</span>
+                        <span className="funnel-pct">({pct}%)</span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </section>
           )}
+
           {heatmap.length > 0 && (
             <section className="card">
-              <h2>Criterion heatmap (top 20 teams)</h2>
+              <h2 className="card__title" style={{ marginBottom: "1.25rem" }}>Criterion Heatmap Matrix (Top 20 Teams)</h2>
               <div className="heatmap">
                 <div className="heatmap-header">
                   <span className="heatmap-team">Team</span>
@@ -198,18 +239,21 @@ export default function AnalyticsPage() {
                       {CRITERIA_LABELS[key]}
                     </span>
                   ))}
-                  <span className="heatmap-composite">Avg</span>
+                  <span className="heatmap-composite">Composite</span>
                 </div>
                 {heatmap.map((row) => (
                   <div className="heatmap-row" key={row.submission_id}>
-                    <span className="heatmap-team">{row.team_name}</span>
+                    <span className="heatmap-team" style={{ fontWeight: 600 }}>{row.team_name}</span>
                     {Object.keys(CRITERIA_LABELS).map((criterion) => {
                       const score = row.scores[criterion] ?? 0;
                       return (
                         <span
                           key={criterion}
                           className="heatmap-cell"
-                          style={{ backgroundColor: getHeatmapColor(score) }}
+                          style={{
+                            backgroundColor: getHeatmapColor(score),
+                            color: score >= 5 ? "#ffffff" : "#cbd5e1",
+                          }}
                           title={`${score}/10`}
                         >
                           {score}
@@ -224,17 +268,21 @@ export default function AnalyticsPage() {
               </div>
             </section>
           )}
+
           {heatmap.length === 0 && !loading && (
             <section className="card">
-              <h2>Criterion heatmap</h2>
-              <p className="hint">No scored submissions for this track yet.</p>
+              <h2 className="card__title">Criterion Heatmap</h2>
+              <p className="hint">
+                No scored submissions for this track yet.
+              </p>
             </section>
           )}
         </>
       )}
+
       {!loading && !overview && (
         <section className="card">
-          <h2>Analytics</h2>
+          <h2 className="card__title">Analytics</h2>
           <p className="hint">Select a track to view analytics.</p>
         </section>
       )}
