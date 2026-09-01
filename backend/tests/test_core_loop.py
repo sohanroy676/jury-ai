@@ -53,7 +53,7 @@ def store(monkeypatch):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
     def fake_insert_submission(
-        team_name, file_url, file_type, team_email=None, supersedes_team=False
+        team_name, file_url, file_type, team_email=None, supersedes_team=False, hackathon_id="default"
     ):
         row = {
             "id": str(uuid.uuid4()),
@@ -67,7 +67,7 @@ def store(monkeypatch):
         return dict(row)
 
     def fake_insert_parsed(
-        submission_id, raw_text, sections, source_format, image_descriptions=None
+        submission_id, raw_text, sections, source_format, image_descriptions=None, hackathon_id="default"
     ):
         row = {
             "submission_id": submission_id,
@@ -83,7 +83,7 @@ def store(monkeypatch):
         row = state["parsed"].get(submission_id)
         return dict(row) if row else None
 
-    def fake_insert_scores(submission_id, scores, agent_version):
+    def fake_insert_scores(submission_id, scores, agent_version, hackathon_id="default"):
         state["scores"][submission_id] = [
             {
                 "submission_id": submission_id,

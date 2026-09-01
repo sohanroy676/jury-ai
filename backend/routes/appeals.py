@@ -61,9 +61,7 @@ class AppealResolution(BaseModel):
     @classmethod
     def _check_status(cls, value: str) -> str:
         if value not in ALLOWED_TRANSITIONS:
-            raise ValueError(
-                "status must be one of: under_review, upheld, overturned."
-            )
+            raise ValueError("status must be one of: under_review, upheld, overturned.")
         return value
 
     @field_validator("evaluator_notes")
@@ -129,7 +127,10 @@ async def file_appeal(submission_id: str, body: AppealRequest) -> dict:
         )
 
     try:
-        appeal = supabase.insert_appeal(submission_id, body.appeal_text)
+        hackathon_id = submission.get("hackathon_id", "default")
+        appeal = supabase.insert_appeal(
+            submission_id, body.appeal_text, hackathon_id=hackathon_id
+        )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -172,8 +173,9 @@ async def get_submission_appeal(submission_id: str) -> dict:
 @router.get("/appeals")
 async def list_appeals(
     status: str | None = Query(default=None),
+    hackathon_id: str = Query(default="default"),
 ) -> dict:
-    """Evaluator queue: list appeals, optionally filtered by status."""
+    """Evaluator queue: list appeals, optionally filtered by status and track."""
     if (
         status is not None
         and status not in ALLOWED_TRANSITIONS
@@ -184,7 +186,7 @@ async def list_appeals(
             detail="status must be one of: pending, under_review, upheld, overturned.",
         )
     try:
-        appeals = supabase.list_appeals(status=status)
+        appeals = supabase.list_appeals(status=status, hackathon_id=hackathon_id)
         composed = [_compose_appeal(a) for a in appeals]
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

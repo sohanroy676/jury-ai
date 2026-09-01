@@ -25,7 +25,7 @@ def _mock_supabase(monkeypatch):
             "parsed_at": "2026-08-22T10:00:00Z",
         }
 
-    def fake_insert_scores(submission_id, scores, agent_version):
+    def fake_insert_scores(submission_id, scores, agent_version, hackathon_id="default"):
         return [
             {
                 "id": f"score-{i}",

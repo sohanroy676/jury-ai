@@ -51,7 +51,7 @@ def _mock_supabase(monkeypatch):
     _active_by_team.clear()
 
     def fake_insert(
-        team_name, file_url, file_type, team_email=None, supersedes_team=False
+        team_name, file_url, file_type, team_email=None, supersedes_team=False, hackathon_id="default"
     ):
         insert_calls.append(
             {"team_email": team_email, "supersedes_team": supersedes_team}
@@ -72,6 +72,7 @@ def _mock_supabase(monkeypatch):
         sections,
         source_format,
         image_descriptions=None,
+        hackathon_id="default",
     ):
         return {
             "id": "00000000-0000-0000-0000-000000000002",

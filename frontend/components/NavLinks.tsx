@@ -9,6 +9,10 @@ export default function NavLinks() {
       <Link href="/dashboard">Evaluator dashboard</Link>
       {" · "}
       <Link href="/dashboard/appeals">Appeals</Link>
+      {" · "}
+      <Link href="/dashboard/analytics">Analytics</Link>
+      {" · "}
+      <Link href="/dashboard/tracks">Tracks</Link>
     </nav>
   );
 }

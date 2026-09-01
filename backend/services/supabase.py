@@ -76,6 +76,7 @@ def insert_submission(
     file_type: str,
     team_email: str | None = None,
     supersedes_team: bool = False,
+    hackathon_id: str = "default",
 ) -> dict:
     """Insert a submission row into Supabase Postgres.
 
@@ -89,6 +90,7 @@ def insert_submission(
             the team's current active submission by stamping
             ``superseded_at`` so history is preserved while only the new
             row stays active. No-op when the team has no active row.
+        hackathon_id: Track scoping (v3.1.0). Defaults to 'default'.
 
     Returns:
         The inserted row as a dict.
@@ -98,7 +100,9 @@ def insert_submission(
     if supersedes_team:
         client.table("submissions").update(
             {"superseded_at": datetime.now(timezone.utc).isoformat()}
-        ).ilike("team_name", team_name).is_("superseded_at", "null").execute()
+        ).ilike("team_name", team_name).is_("superseded_at", "null").eq(
+            "hackathon_id", hackathon_id
+        ).execute()
 
     row = (
         client.table("submissions")
@@ -107,9 +111,8 @@ def insert_submission(
                 "team_name": team_name,
                 "file_url": file_url,
                 "file_type": file_type,
-                # v1.2.0: contact email for notifications. Blank input is
-                # stored as NULL (the DB CHECK allows NULL, not '').
                 "team_email": (team_email or None),
+                "hackathon_id": hackathon_id,
             }
         )
         .execute()
@@ -155,6 +158,7 @@ def insert_parsed_submission(
     sections: list[dict],
     source_format: str,
     image_descriptions: list[dict] | None = None,
+    hackathon_id: str = "default",
 ) -> dict:
     """Insert a parsed-submission row into Supabase Postgres.
 
@@ -165,6 +169,7 @@ def insert_parsed_submission(
         source_format: One of ``pdf`` or ``pptx``.
         image_descriptions: Vision-LLM descriptions of embedded images
             (v0.3.5). Defaults to an empty list.
+        hackathon_id: Track scoping (v3.1.0). Defaults to 'default'.
 
     Returns:
         The inserted row as a dict.
@@ -180,6 +185,7 @@ def insert_parsed_submission(
                 "sections": sections,
                 "source_format": source_format,
                 "image_descriptions": image_descriptions or [],
+                "hackathon_id": hackathon_id,
             }
         )
         .execute()
@@ -293,6 +299,7 @@ def insert_scores(
     submission_id: str,
     scores: list,
     agent_version: str,
+    hackathon_id: str = "default",
 ) -> list[dict]:
     """Insert score rows into Supabase Postgres.
 
@@ -301,6 +308,7 @@ def insert_scores(
         scores: A list of objects with ``criterion``, ``score``, and
             ``justification`` attributes (e.g. ``CriterionScore`` dataclasses).
         agent_version: The version string of the scoring agent.
+        hackathon_id: Track scoping (v3.1.0). Defaults to 'default'.
 
     Returns:
         The inserted rows as a list of dicts.
@@ -315,6 +323,7 @@ def insert_scores(
             "justification": s.justification,
             "cited_excerpt": getattr(s, "cited_excerpt", ""),
             "agent_version": agent_version,
+            "hackathon_id": hackathon_id,
         }
         for s in scores
     ]
@@ -397,6 +406,7 @@ def get_scores(submission_id: str) -> list[dict]:
 
     return list(result.data or [])
 
+
 def override_score(
     submission_id: str,
     criterion: str,
@@ -450,7 +460,6 @@ def override_score(
 
     result = client.table("scores").update(update).eq("id", row["id"]).execute()
     return result.data[0] if result.data else None
-
 
 
 # --- Rubric config + ranking inputs (v0.6.0) --------------------------
@@ -514,16 +523,24 @@ def upsert_rubric(hackathon_id: str, weights: dict[str, float]) -> dict[str, flo
     return stored or {c: float(w) for c, w in weights.items()}
 
 
-def get_all_scores() -> list[dict]:
-    """Fetch every score row (ranking input), minimal columns.
+def get_all_scores(hackathon_id: str = "default") -> list[dict]:
+    """Fetch every score row (ranking/analytics input), minimal columns.
+
+    Args:
+        hackathon_id: Track scoping (v3.1.0). Defaults to 'default'.
 
     Returns:
-        A list of rows with ``submission_id``, ``criterion``, ``score``;
+        A list of rows with ``submission_id``, ``criterion``, ``score``, ``cited_excerpt``;
         empty when nothing has been scored yet.
     """
     client = get_client()
 
-    result = client.table("scores").select("submission_id, criterion, score, cited_excerpt").execute()
+    result = (
+        client.table("scores")
+        .select("submission_id, criterion, score, cited_excerpt")
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
 
     return list(result.data or [])
 
@@ -620,13 +637,27 @@ def get_feedback(submission_id: str) -> dict | None:
 # --- Appeals (v1.3.0) -----------------------------------------------------
 
 
-def insert_appeal(submission_id: str, appeal_text: str) -> dict:
-    """File a new appeal for a submission (one live appeal, unique on id)."""
+def insert_appeal(
+    submission_id: str, appeal_text: str, hackathon_id: str = "default"
+) -> dict:
+    """File a new appeal for a submission (one live appeal, unique on id).
+
+    Args:
+        submission_id: The UUID of the parent submission.
+        appeal_text: The team's appeal text.
+        hackathon_id: Track scoping (v3.1.0). Defaults to 'default'.
+    """
     client = get_client()
 
     result = (
         client.table("appeals")
-        .insert({"submission_id": submission_id, "appeal_text": appeal_text})
+        .insert(
+            {
+                "submission_id": submission_id,
+                "appeal_text": appeal_text,
+                "hackathon_id": hackathon_id,
+            }
+        )
         .execute()
     )
     return (result.data or [None])[0]
@@ -652,28 +683,30 @@ def get_appeal_by_id(appeal_id: str) -> dict | None:
     """Fetch a single appeal row by its id (or None)."""
     client = get_client()
 
-    result = (
-        client.table("appeals")
-        .select("*")
-        .eq("id", appeal_id)
-        .limit(1)
-        .execute()
-    )
+    result = client.table("appeals").select("*").eq("id", appeal_id).limit(1).execute()
     if not result.data:
         return None
     return result.data[0]
 
 
-def list_appeals(status: str | None = None) -> list[dict]:
+def list_appeals(
+    status: str | None = None, hackathon_id: str = "default"
+) -> list[dict]:
     """List appeals for the evaluator queue, oldest first.
 
     Args:
         status: Optional filter ('pending', 'under_review', 'upheld',
             'overturned').
+        hackathon_id: Track scoping (v3.1.0). Defaults to 'default'.
     """
     client = get_client()
 
-    query = client.table("appeals").select("*").order("created_at")
+    query = (
+        client.table("appeals")
+        .select("*")
+        .eq("hackathon_id", hackathon_id)
+        .order("created_at")
+    )
     if status:
         query = query.eq("status", status)
     result = query.execute()
@@ -706,3 +739,113 @@ def update_appeal(
 
     result = client.table("appeals").update(update).eq("id", appeal_id).execute()
     return (result.data or [None])[0]
+
+
+# --- Tracks (v3.1.0) -------------------------------------------------------
+
+
+def create_track(track_id: str, name: str, description: str | None = None) -> dict:
+    """Create a new track. Returns the inserted track row."""
+    client = get_client()
+
+    result = (
+        client.table("tracks")
+        .insert({"id": track_id, "name": name, "description": description})
+        .execute()
+    )
+    return (result.data or [None])[0]
+
+
+def list_tracks() -> list[dict]:
+    """List all tracks, oldest first."""
+    client = get_client()
+
+    result = client.table("tracks").select("*").order("created_at").execute()
+    return list(result.data or [])
+
+
+def delete_track(track_id: str) -> bool:
+    """Delete a track. Returns True if a row was deleted."""
+    client = get_client()
+
+    result = client.table("tracks").delete().eq("id", track_id).execute()
+    return bool(result.data)
+
+
+def get_track(track_id: str) -> dict | None:
+    """Fetch a single track by id (or None)."""
+    client = get_client()
+
+    result = client.table("tracks").select("*").eq("id", track_id).limit(1).execute()
+    if not result.data:
+        return None
+    return result.data[0]
+
+
+# --- Analytics helpers (v3.2.0) --------------------------------------------
+
+
+def get_all_submissions(hackathon_id: str = "default") -> list[dict]:
+    """Fetch all submissions for a track (id, team_name, status)."""
+    client = get_client()
+
+    result = (
+        client.table("submissions")
+        .select("id, team_name, status")
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
+    return list(result.data or [])
+
+
+def get_all_parsed_ids(hackathon_id: str = "default") -> int:
+    """Count parsed submissions for a track (funnel: parsed)."""
+    client = get_client()
+
+    result = (
+        client.table("parsed_submissions")
+        .select("submission_id", count="exact")
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
+    return result.count or 0
+
+
+def get_feedback_count(hackathon_id: str = "default") -> int:
+    """Count feedback rows for a track (funnel: scored + shortlisted)."""
+    client = get_client()
+
+    result = (
+        client.table("feedback")
+        .select("submission_id", count="exact")
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
+    return result.count or 0
+
+
+def get_shortlisted_count(hackathon_id: str = "default") -> int:
+    """Count shortlisted feedback rows for a track (funnel: shortlisted)."""
+    client = get_client()
+
+    result = (
+        client.table("feedback")
+        .select("submission_id", count="exact")
+        .eq("hackathon_id", hackathon_id)
+        .eq("verdict", "shortlist")
+        .execute()
+    )
+    return result.count or 0
+
+
+def get_appeal_count(hackathon_id: str = "default") -> int:
+    """Count appeals for a track (funnel: appealed)."""
+    client = get_client()
+
+    result = (
+        client.table("appeals")
+        .select("id", count="exact")
+        .eq("hackathon_id", hackathon_id)
+        .execute()
+    )
+    return result.count or 0

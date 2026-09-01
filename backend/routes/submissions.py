@@ -31,6 +31,7 @@ async def create_submission(
     file: UploadFile = File(...),
     replace_existing: bool = Form(False),
     team_email: str = Form(""),
+    hackathon_id: str = Form("default"),
 ) -> dict:
     """Upload a submission file, parse it, and store both.
 
@@ -145,6 +146,7 @@ async def create_submission(
             file_type,
             team_email=team_email,
             supersedes_team=bool(existing_active),
+            hackathon_id=hackathon_id,
         )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -157,6 +159,7 @@ async def create_submission(
             parsed.sections,
             parsed.source_format,
             image_descriptions=parsed.image_descriptions,
+            hackathon_id=hackathon_id,
         )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

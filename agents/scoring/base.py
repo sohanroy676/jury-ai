@@ -186,9 +186,7 @@ Score this submission on '{self.criterion}' and return valid JSON."""
         # when no clearly relevant section exists for the criterion.
         raw_citation = entry.get("cited_excerpt", "")
         cited_excerpt = (
-            normalize_unicode_dashes(str(raw_citation).strip())
-            if raw_citation
-            else ""
+            normalize_unicode_dashes(str(raw_citation).strip()) if raw_citation else ""
         )
 
         return CriterionScore(

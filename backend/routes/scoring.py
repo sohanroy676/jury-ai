@@ -51,7 +51,17 @@ async def _score_one_submission(submission_id: str) -> dict:
 
     # --- Store the scores.
     try:
-        supabase.insert_scores(submission_id, result.scores, result.agent_version)
+        hackathon_id = (
+            parsed.get("hackathon_id", "default")
+            if isinstance(parsed, dict)
+            else "default"
+        )
+        supabase.insert_scores(
+            submission_id,
+            result.scores,
+            result.agent_version,
+            hackathon_id=hackathon_id,
+        )
     except supabase.SupabaseNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

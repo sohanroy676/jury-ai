@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import ErrorBanner from "../../components/ErrorBanner";
-import NavLinks from "../../components/NavLinks";
+import ErrorBanner from "@/components/ErrorBanner";
+import NavLinks from "@/components/NavLinks";
 import {
   ApiError,
   AppealQueueItem,
   AppealStatus,
   fetchAppeals,
   resolveAppeal,
-} from "../../lib/api";
+} from "@/lib/api";
 
 const STATUS_OPTIONS: (AppealStatus | "all")[] = [
   "all",

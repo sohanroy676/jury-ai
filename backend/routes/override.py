@@ -26,9 +26,7 @@ class ScoreOverride(BaseModel):
     """PUT /api/submissions/{id}/scores/{criterion} request body."""
 
     score: int = Field(..., description="New score, integer 1-10.")
-    reason: str = Field(
-        ..., description="Required human justification (min 10 chars)."
-    )
+    reason: str = Field(..., description="Required human justification (min 10 chars).")
     evaluator: str = Field(..., description="Evaluator name or email.")
 
     @field_validator("score")
@@ -92,9 +90,7 @@ async def override_submission_score(
         UUID(submission_id)
         submission = supabase.get_submission(submission_id)
         if submission is None:
-            raise HTTPException(
-                status_code=404, detail="Submission not found."
-            )
+            raise HTTPException(status_code=404, detail="Submission not found.")
         updated = supabase.override_score(
             submission_id,
             criterion,
@@ -110,8 +106,7 @@ async def override_submission_score(
         raise HTTPException(
             status_code=409,
             detail=(
-                f"Submission has no '{criterion}' score to override. "
-                "Score it first."
+                f"Submission has no '{criterion}' score to override. Score it first."
             ),
         )
 

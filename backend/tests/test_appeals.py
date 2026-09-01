@@ -88,13 +88,14 @@ class FakeStore:
     def get_scores(self, sid: str) -> list[dict]:
         return [dict(r) for r in self.scores if r["submission_id"] == sid]
 
-    def insert_appeal(self, sid: str, text: str) -> dict:
+    def insert_appeal(self, sid: str, text: str, hackathon_id: str = "default") -> dict:
         row = {
             "id": str(uuid.uuid4()),
             "submission_id": sid,
             "appeal_text": text,
             "status": "pending",
             "created_at": "2026-09-01T00:00:00Z",
+            "hackathon_id": hackathon_id,
         }
         self.appeals.append(row)
         return dict(row)
@@ -105,7 +106,7 @@ class FakeStore:
     def get_appeal_by_id(self, aid: str) -> dict | None:
         return next((a for a in self.appeals if a["id"] == aid), None)
 
-    def list_appeals(self, status: str | None = None) -> list[dict]:
+    def list_appeals(self, status: str | None = None, hackathon_id: str = "default") -> list[dict]:
         rows = self.appeals
         if status:
             rows = [a for a in rows if a["status"] == status]

@@ -49,14 +49,14 @@ class FakeStore:
     def list_submissions(self, limit: int = 100) -> list[dict]:
         return [dict(r) for r in reversed(self.submissions[-limit:])]
 
-    def get_all_scores(self) -> list[dict]:
+    def get_all_scores(self, hackathon_id: str = "default") -> list[dict]:
         return [dict(r) for r in self.score_rows]
 
     def get_parsed_submission(self, sid: str) -> dict | None:
         row = self.parsed.get(sid)
         return dict(row) if row else None
 
-    def insert_scores(self, sid: str, scores, agent_version: str) -> list[dict]:
+    def insert_scores(self, sid: str, scores, agent_version: str, hackathon_id: str = "default") -> list[dict]:
         self.inserted.append((sid, agent_version))
         return [
             {"submission_id": sid, "criterion": s.criterion, "score": s.score}

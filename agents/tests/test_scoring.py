@@ -59,6 +59,8 @@ def _valid_response(
     if cited_excerpt is not None:
         entry["cited_excerpt"] = cited_excerpt
     return json.dumps({criterion: entry})
+
+
 def _valid_response(
     criterion: str, score: int = 8, justification: str | None = None
 ) -> str:
@@ -412,8 +414,6 @@ def test_scorer_facade_still_exports_public_names():
     assert [a.criterion for a in agents_list] == CRITERIA_NAMES
 
 
-
-
 # --- v2.3.0 Explainability: cited excerpts ----------------------------------
 
 
@@ -430,7 +430,9 @@ def test_citation_extracted_from_response():
     )
     client = _mock_client(raw)
     score = asyncio.run(ProblemFitAgent().score(client, "text"))
-    assert score.cited_excerpt == "Over 2M students lack access to quality STEM resources."
+    assert (
+        score.cited_excerpt == "Over 2M students lack access to quality STEM resources."
+    )
 
 
 def test_citation_defaults_to_empty_when_missing():

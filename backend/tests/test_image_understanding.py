@@ -76,7 +76,7 @@ def _mock_supabase(monkeypatch):
         return f"https://example.supabase.co/storage/v1/object/public/submissions/{file_name}"
 
     def fake_insert(
-        team_name, file_url, file_type, team_email=None, supersedes_team=False
+        team_name, file_url, file_type, team_email=None, supersedes_team=False, hackathon_id="default"
     ):
         return {
             "id": "00000000-0000-0000-0000-000000000001",
@@ -95,6 +95,7 @@ def _mock_supabase(monkeypatch):
         sections,
         source_format,
         image_descriptions=None,
+        hackathon_id="default",
     ):
         captured["image_descriptions"] = image_descriptions
         return {"id": "parsed-1", "submission_id": submission_id}

@@ -281,11 +281,7 @@ export function overrideScore(
 
 // --- v1.3.0: appeals -----------------------------------------------------
 
-export type AppealStatus =
-  | "pending"
-  | "under_review"
-  | "upheld"
-  | "overturned";
+export type AppealStatus = "pending" | "under_review" | "upheld" | "overturned";
 
 export interface Appeal {
   id: string;
@@ -324,9 +320,7 @@ export function fileAppeal(
 }
 
 export function fetchAppeal(submissionId: string): Promise<AppealResponse> {
-  return request(
-    `/api/submissions/${encodeURIComponent(submissionId)}/appeal`
-  );
+  return request(`/api/submissions/${encodeURIComponent(submissionId)}/appeal`);
 }
 
 export function fetchAppeals(
@@ -410,6 +404,113 @@ export function generatePendingFeedback(
     `/api/submissions/feedback-pending?${params.toString()}`,
     { method: "POST" }
   );
+}
+
+// v3.2.0: Analytics types
+export interface TrackInfo {
+  id: string;
+  name: string;
+  description?: string | null;
+  created_at: string;
+}
+
+export interface AnalyticsOverview {
+  hackathon_id: string;
+  total_submissions: number;
+  scored_count: number;
+  shortlisted_count: number;
+  avg_composite: number;
+  criterion_averages: Record<string, number>;
+}
+
+export interface DistributionBin {
+  score: number;
+  count: number;
+}
+
+export interface FunnelData {
+  submitted: number;
+  parsed: number;
+  scored: number;
+  shortlisted: number;
+  appealed: number;
+}
+
+export interface HeatmapRow {
+  submission_id: string;
+  team_name: string;
+  composite: number;
+  scores: Record<string, number>;
+}
+
+// --- Track API ----------------------------------------------------------
+
+export function listTracks(): Promise<{ tracks: TrackInfo[] }> {
+  return request<{ tracks: TrackInfo[] }>(`/api/tracks`);
+}
+
+export function createTrack(
+  id: string,
+  name: string,
+  description?: string
+): Promise<{ track: TrackInfo }> {
+  return request<{ track: TrackInfo }>(`/api/tracks`, {
+    method: "POST",
+    body: JSON.stringify({ id, name, description }),
+  });
+}
+
+export function deleteTrack(
+  id: string
+): Promise<{ deleted: boolean; id: string }> {
+  return request<{ deleted: boolean; id: string }>(
+    `/api/tracks/${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
+}
+
+// --- Analytics API ------------------------------------------------------
+
+export function fetchAnalyticsOverview(
+  hackathonId: string
+): Promise<AnalyticsOverview> {
+  return request<AnalyticsOverview>(
+    `/api/analytics/${encodeURIComponent(hackathonId)}/overview`
+  );
+}
+
+export function fetchScoreDistributions(
+  hackathonId: string
+): Promise<{
+  hackathon_id: string;
+  distributions: Record<string, DistributionBin[]>;
+}> {
+  return request<{
+    hackathon_id: string;
+    distributions: Record<string, DistributionBin[]>;
+  }>(`/api/analytics/${encodeURIComponent(hackathonId)}/distributions`);
+}
+
+export function fetchFunnel(
+  hackathonId: string
+): Promise<{ hackathon_id: string; funnel: FunnelData }> {
+  return request<{ hackathon_id: string; funnel: FunnelData }>(
+    `/api/analytics/${encodeURIComponent(hackathonId)}/funnel`
+  );
+}
+
+export function fetchHeatmap(
+  hackathonId: string
+): Promise<{
+  hackathon_id: string;
+  heatmap: HeatmapRow[];
+  total_scored: number;
+}> {
+  return request<{
+    hackathon_id: string;
+    heatmap: HeatmapRow[];
+    total_scored: number;
+  }>(`/api/analytics/${encodeURIComponent(hackathonId)}/heatmap`);
 }
 
 // --- Export URLs (direct downloads, no JSON wrapper) --------------------
